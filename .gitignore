@@ -1,0 +1,33 @@
+# Data and Local Storage
+data/raw/*
+!data/raw/.gitkeep
+db/*.db
+
+
+# Python
+__pycache__/
+*.pyc
+*.py[cod]
+*$py.class
+.pytest_cache/
+.ipynb_checkpoints/
+.coverage
+
+# Environment
+venv/
+.venv
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Excel temp/lock files
+~$*.xlsx
+
+# Power BI temp files
+*.pbix.lock
+
+# Editor Settings
+.vscode/
+.idea/
