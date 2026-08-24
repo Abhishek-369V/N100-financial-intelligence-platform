@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src" / "analytics"))
 
-from ratios import (
+from ratios import ( # type:ignore
     net_profit_margin, operating_profit_margin,
     return_on_equity, return_on_capital_employed, return_on_assets
 )
