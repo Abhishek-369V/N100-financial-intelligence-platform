@@ -1,0 +1,65 @@
+# Analyst-editable filter definitions. 
+# Each metric maps to a column in financial_ratios (or a derived column) and a comparison direction.
+
+filters:
+  roe_min:
+    column: return_on_equity_pct
+    direction: min          # value must be >= threshold
+
+  de_max:
+    column: debt_to_equity
+    direction: max          # value must be <= threshold
+    skip_sector: Financials  # per spec: D/E filter auto-skipped for Financials sector
+
+  fcf_min:
+    column: free_cash_flow_cr
+    direction: min
+
+  revenue_cagr_5yr_min:
+    column: revenue_cagr_5yr
+    direction: min
+
+  pat_cagr_5yr_min:
+    column: pat_cagr_5yr
+    direction: min
+
+  opm_min:
+    column: operating_profit_margin_pct
+    direction: min
+
+  pe_max:
+    column: pe_ratio
+    direction: max
+
+  pb_max:
+    column: pb_ratio
+    direction: max
+
+  dividend_yield_min:
+    column: dividend_yield_pct
+    direction: min
+
+  icr_min:
+    column: interest_coverage
+    direction: min
+    infinity_label: "Debt Free"   # per spec: Debt Free always passes any ICR minimum
+
+  market_cap_min:
+    column: market_cap_crore
+    direction: min
+
+  net_profit_min:
+    column: net_profit
+    direction: min
+
+  eps_cagr_min:
+    column: eps_cagr_5yr
+    direction: min
+
+  asset_turnover_min:
+    column: asset_turnover
+    direction: min
+
+  sales_min:
+    column: sales
+    direction: min
