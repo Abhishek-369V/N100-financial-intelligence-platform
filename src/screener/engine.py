@@ -23,9 +23,10 @@ def load_config():
 
 def load_universe():
     """
-    Load the full screening universe: financial_ratios joined with sectors
-    (needed for the Financials D/E skip rule) and market_cap/financial data
-    (needed for P/E, P/B, dividend yield filters not present in financial_ratios).
+    Load the full screening universe: 
+    financial_ratios joined with sectors(needed for the Financials D/E skip rule) 
+    and market_cap/financial data (needed for P/E, P/B, dividend yield filters not present in financial_ratios).
+    - Then it merges them all into one wide table...
     """
     ratios = pd.read_sql("SELECT * FROM financial_ratios", db_engine)
     sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", db_engine)
@@ -37,10 +38,12 @@ def load_universe():
 
     # Use each company's latest year only for screening (a snapshot view, not full history)
     ratios_latest = ratios.sort_values("year").groupby("company_id").last().reset_index()
+    market_cap_latest = market_cap.sort_values("year").groupby("company_id").last().reset_index()  
+    pnl_latest = pnl.sort_values("year").groupby("company_id").last().reset_index()                  
 
     df = ratios_latest.merge(sectors, on="company_id", how="left")
-    df = df.merge(market_cap, on="company_id", how="left", suffixes=("", "_mc"))
-    df = df.merge(pnl, on="company_id", how="left", suffixes=("", "_pnl"))
+    df = df.merge(market_cap_latest, on="company_id", how="left", suffixes=("", "_mc"))   # use _latest version
+    df = df.merge(pnl_latest, on="company_id", how="left", suffixes=("", "_pnl"))          # use _latest version
 
     return df
 
