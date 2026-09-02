@@ -117,3 +117,25 @@ def compute_composite_score(df, sector_relative=False):
         return df.groupby("broad_sector", group_keys=False).apply(score_group)
     else:
         return score_group(df)
+
+
+# Quick Smoke Test: let's verify the scoring output first -- before moving to the Excel generation half of Day 17!.. 
+if __name__ == "__main__":
+    universe = load_universe()
+    scored = compute_composite_score(universe, sector_relative=False)
+    sector_scored = compute_composite_score(universe, sector_relative=True)
+
+    print("=" * 60)
+    print("COMPOSITE SCORE — TOP 10 (GLOBAL)")
+    print("=" * 60)
+    print(scored.sort_values("composite_quality_score", ascending=False)
+          [["company_id", "composite_quality_score", "return_on_equity_pct"]].head(10))
+
+    print("\n" + "=" * 60)
+    print("BEL / INDIGO CHECK — did winsorization neutralize the outliers?")
+    print("=" * 60)
+    for cid in ["BEL", "INDIGO"]:
+        row = scored[scored["company_id"] == cid]
+        if not row.empty:
+            print(f"{cid}: raw ROE={row['return_on_equity_pct'].values[0]}%  "
+                  f"composite_score={row['composite_quality_score'].values[0]}")
