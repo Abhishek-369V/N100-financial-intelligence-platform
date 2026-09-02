@@ -139,3 +139,11 @@ if __name__ == "__main__":
         if not row.empty:
             print(f"{cid}: raw ROE={row['return_on_equity_pct'].values[0]}%  "
                   f"composite_score={row['composite_quality_score'].values[0]}")
+
+    print("\n" + "=" * 60)
+    print("Check: after winsorization, what's the actual capped ROE value being used for scoring?")
+    print("=" * 60)
+    roe_winsorized = winsorize(scored["return_on_equity_pct"])
+    print("90th percentile ROE (the cap):", scored["return_on_equity_pct"].quantile(0.90))
+    print("INDIGO's winsorized ROE contribution:", roe_winsorized[scored["company_id"]=="INDIGO"].values)
+    print()
