@@ -9,3 +9,8 @@ Implemented per spec as written (exact D/E=0),
 not loosened without a documented decision. 
 Flagging for team: should "Debt-Free" mean D/E < some small threshold (e.g., 0.05)
 instead of literal zero? Current implementation is spec-compliant but may be narrower than intended.
+
+3. screener_output.xlsx's -- 
+red-fill logic (fail threshold) is implemented correctly but never triggers in current output, 
+since "presets.py" filters out failing rows before export -- only qualifying companies ever reach the Excel sheet. 
+Red-fill code is present and spec-compliant, but effectively unused given the current pipeline design. Not a bug!..
