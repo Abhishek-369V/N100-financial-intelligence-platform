@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
-CONFIG_PATH = BASE_DIR / "src" / "screener" / "screener_config.yaml"
+CONFIG_PATH = BASE_DIR / "config" / "screener_config.yaml"
 
 db_engine = create_engine(f"sqlite:///{DB_PATH}")
 
