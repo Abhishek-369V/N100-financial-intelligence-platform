@@ -14,6 +14,8 @@ from engine import load_universe #type:ignore
 from composite_score import compute_composite_score, winsorize, scale_0_100 #type:ignore
 from radar_charts import RADAR_AXES, RAW_METRIC_MAP  # reuse Day 19's exact 8 axes #type:ignore
 
+st.set_page_config(layout="wide")
+
 st.title("Peer Comparison")
 
 groups = get_peer_group_names()
@@ -95,7 +97,7 @@ fig.update_layout(
         height=500, 
         margin=dict(t=30, b=30),
 )
-st.plotly_chart(fig, use_container_width=True)
+st.plotly_chart(fig, width="stretch")
 st.caption(
     "All 8 axes are winsorized + scaled 0-100 (same pipeline as Day 19's static "
     "radar PNGs). ROCE uses each company's single latest-snapshot value (no "
@@ -116,4 +118,4 @@ kpi_table = group_df[table_cols].sort_values("is_benchmark", ascending=False)
 def highlight_benchmark(row):
     return ["background-color: #FFD700" if row["is_benchmark"] == 1 else "" for _ in row]
 
-st.dataframe(kpi_table.style.apply(highlight_benchmark, axis=1), hide_index=True, use_container_width=True)
+st.dataframe(kpi_table.style.apply(highlight_benchmark, axis=1), hide_index=True, width="stretch")

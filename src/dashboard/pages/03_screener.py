@@ -11,6 +11,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "screener
 from engine import load_universe, apply_filter, load_config #type:ignore
 from composite_score import compute_composite_score #type:ignore
 
+st.set_page_config(layout="wide")
+
 st.title("Screener")
 
 # Bounds are practical display ranges, 
@@ -72,7 +74,7 @@ if "_preset_note" not in st.session_state:
 st.subheader("Presets")
 preset_cols = st.columns(6)
 for i, (name, (values, note)) in enumerate(PRESETS.items()):
-    if preset_cols[i].button(name, use_container_width=True):
+    if preset_cols[i].button(name, width="stretch"):
         for k, v in values.items():
             st.session_state[k] = v
         st.session_state["_preset_note"] = f"**{name}**: {note}" if note else None
@@ -121,7 +123,7 @@ display_cols = [
 display_cols = [c for c in display_cols if c in filtered.columns]
 result_table = filtered[display_cols].sort_values("composite_quality_score", ascending=False, na_position="last")
 
-st.dataframe(result_table, hide_index=True, use_container_width=True)
+st.dataframe(result_table, hide_index=True, width="stretch")
 
 st.download_button(
     "Download CSV",
