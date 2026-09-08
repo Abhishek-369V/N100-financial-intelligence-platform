@@ -18,19 +18,28 @@ picked = st.selectbox("Search company name or ticker", options, index=None, plac
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+# What fixed the report unavailable error showing for every company before: 
+# BSE's servers were silently rejecting requests that had requests' 
+# default Python User-Agent header (a common anti-bot/anti-scraper defense) — so every single link came back looking 
+# like a 403/failure, not just TCS/ADANIENSOL, even though the links themselves were fine. 
+# 
+# Adding a browser-like User-Agent header made BSE treat the request as a normal browser visit, so it stopped blocking it. 
+# The 403/405 fallback-to-GET also helps because some servers reject HEAD requests outright but allow GET.
+
+# adding this headers to head and get requests
+HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"} 
+
 @st.cache_data(ttl=3600)
 def check_url_status(url):
     """
-    HEAD request with a short timeout; treats any exception (timeout, DNS
-    failure, connection refused) the same as a 404 for display purposes --
-    the badge just needs to say "can't reach this," not diagnose why.
-    Cached 1hr so re-viewing a company doesn't re-hit BSE's servers every
-    rerun.
+    HEAD request with a short timeout; treats any exception (timeout, DNS failure, connection refused) 
+    the same as a 404 for display purposes -- the badge just needs to say "can't reach this," not diagnose why.
+    Cached 1hr so re-viewing a company doesn't re-hit BSE's servers every rerun.
     """
     try:
-        resp = requests.head(url, timeout=5, allow_redirects=True)
-        if resp.status_code == 405:  # some servers reject HEAD; retry with GET
-            resp = requests.get(url, timeout=5, stream=True)
+        resp = requests.head(url, timeout=5, allow_redirects=True, headers=HEADERS) # added headers
+        if resp.status_code in (403, 405): #included 405 
+            resp = requests.get(url, timeout=5, stream=True, headers=HEADERS) # added headers
         return resp.status_code
     except requests.RequestException:
         return None
