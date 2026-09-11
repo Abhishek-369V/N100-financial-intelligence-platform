@@ -1,0 +1,9 @@
+company_id,metric_type,parsed_5yr_value_pct,ratio_engine_value_pct,divergence_pct_points,flag_manual_review
+SBILIFE,compounded_sales_growth,24.0,24.23,0.23,False
+SBILIFE,compounded_profit_growth,6.0,7.37,1.37,False
+TCS,compounded_sales_growth,10.0,10.46,0.46,False
+TCS,compounded_profit_growth,8.0,7.87,0.13,False
+HDFCBANK,compounded_sales_growth,22.0,21.95,0.05,False
+HDFCBANK,compounded_profit_growth,23.0,23.87,0.87,False
+INFY,compounded_sales_growth,13.0,13.2,0.2,False
+INFY,compounded_profit_growth,11.0,11.24,0.24,False
