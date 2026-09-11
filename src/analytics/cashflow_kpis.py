@@ -153,14 +153,29 @@ def generate_capital_allocation_output(df):
     Runs classify_capital_allocation() across every company-year row in df,
     returns a DataFrame ready to save as output/capital_allocation.csv.
     df must have columns: company_id, year, operating_activity,
-    investing_activity, financing_activity.
+    investing_activity, financing_activity, and (for the Shareholder Returns
+    split) net_profit -- CFO/PAT is computed inline per row here.
+
+    BUGFIX (carried over from Sprint 4 retro): this used to call
+    classify_capital_allocation() without cfo_pat_ratio at all, so
+    "Shareholder Returns" could never be produced -- every (+,-,-) row
+    fell back to "Reinvestor" regardless of cash quality. Now computes
+    CFO/PAT per row (when net_profit is available and non-zero) and
+    passes it through, matching the function's own documented intent.
     """
     results = []
     for _, row in df.iterrows():
+        cfo_pat_ratio = None
+        if "net_profit" in df.columns:
+            net_profit = row["net_profit"]
+            if pd.notna(net_profit) and net_profit != 0:
+                cfo_pat_ratio = row["operating_activity"] / net_profit
+
         label = classify_capital_allocation(
             cfo=row["operating_activity"],
             cfi=row["investing_activity"],
             cff=row["financing_activity"],
+            cfo_pat_ratio=cfo_pat_ratio,
         )
         results.append({
             "company_id": row["company_id"],
