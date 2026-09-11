@@ -35,6 +35,15 @@ def load_universe():
         db_engine
     )
     pnl = pd.read_sql("SELECT company_id, year, sales, net_profit FROM profitandloss", db_engine)
+    # BUGFIX (carried over from Sprint 4 retro, fixed here in Sprint 5):
+    # companies.roce_percentage was never merged in, so every downstream
+    # consumer of load_universe() (this engine's own run_screener(),
+    # composite_score.py via presets.py, and Day 19's radar PNGs) was
+    # silently defaulting ROCE to a flat 50 in scoring. companies.id is
+    # the ticker PK -> aliased to company_id to match every other table here.
+    companies = pd.read_sql(
+        "SELECT id AS company_id, roce_percentage FROM companies", db_engine
+    )
 
     # Use each company's latest year only for screening (a snapshot view, not full history)
     ratios_latest = ratios.sort_values("year").groupby("company_id").last().reset_index()
@@ -44,6 +53,7 @@ def load_universe():
     df = ratios_latest.merge(sectors, on="company_id", how="left")
     df = df.merge(market_cap_latest, on="company_id", how="left", suffixes=("", "_mc"))   # use _latest version
     df = df.merge(pnl_latest, on="company_id", how="left", suffixes=("", "_pnl"))          # use _latest version
+    df = df.merge(companies, on="company_id", how="left")                                  # BUGFIX: roce_percentage
 
     return df
 
@@ -110,15 +120,20 @@ def run_screener(filters_dict):
     filters_dict: {"roe_min": 15, "de_max": 1.0, ...}
 
     Returns the filtered DataFrame, sorted by composite_quality_score
-    descending (column added here as a placeholder; real scoring logic
-    is built in Day 17 -- for now this just ensures the column exists
-    so downstream code doesn't break on a missing column).
+    descending.
+    BUGFIX (carried over from Sprint 4 retro): this used to set
+    composite_quality_score to a None placeholder instead of actually
+    calling the Day 17 scorer, so screener results never had a real
+    score to sort by. Imported lazily (not at module top) because
+    composite_score.py -> presets.py -> this module, so a top-level
+    import here would be circular.
     """
+    from composite_score import compute_composite_score  # local import: avoids circular import
+
     config = load_config()
     df = load_universe()
 
-    if "composite_quality_score" not in df.columns:
-        df["composite_quality_score"] = None  # placeholder until Day 17
+    df = compute_composite_score(df, sector_relative=False)
 
     for filter_name, threshold in filters_dict.items():
         df = apply_filter(df, filter_name, threshold, config)
