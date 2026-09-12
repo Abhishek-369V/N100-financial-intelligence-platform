@@ -1,5 +1,7 @@
-## Day 29:
+## **Day 29: NLP — Analysis Text Parser**
+
 GAP HANDLING (decided and documented, not silently patched):
+
 1. Reads data/processed/analysis.csv (not data/raw/analysis.xlsx). Verified
    byte-for-byte identical content after dtype alignment -- the processed
    CSV is just the already-flattened, already-clean version (no title-banner
@@ -24,8 +26,10 @@ GAP HANDLING (decided and documented, not silently patched):
    a valid negative figure as a parse failure. Extended both patterns to
    `([\d.\-]+)%` to capture the sign.
 
-## Day 30: 
+## **Day 30: NLP — Auto Pros/Cons Generator**
+
 GAP HANDLING (decided and documented):
+
 1. financial_ratios (the primary source for 10 of the 12 pro rules and
    10 of the 12 con rules) is missing 2 of 92 companies entirely: SBIN
    (Public Sector Bank -- D/E-style ratios are structurally meaningless
@@ -52,3 +56,32 @@ GAP HANDLING (decided and documented):
    whatever single best/worst metric is actually available for it, at
    confidence 61 (just above the cutoff) -- tagged with rule_id
    'FALLBACK' so it's auditable and never confused with a real rule hit.
+
+## **Day 31 — Cash Flow Intelligence:**
+
+1. `cashflow_intelligence.xlsx`: 92/92 rows, 13 distress alerts, CFO quality split 61 High/17 Accrual Risk/12 Moderate
+2. `Important caveat, not filtered out — just labeled`: 9 of the 13 "distress" flags are banks/NBFCs (AXISBANK, BAJFINANCE, PNB, etc.) — for financial-sector companies, CFO<0+CFF>0 is normal business model (loan disbursement = operating outflow, deposits = financing inflow), not actual distress. All 9 have strong positive net profit. Added a `sector` + `likely_financial_sector_pattern` column to `distress_alerts.csv` so this isn't misread.
+3. 2 companies (AMBUJACEM, ATGL) have gaps in cash flow history → None values, not silently dropped.
+
+## **Day 32 — Capital Allocation Report:**
+
+GAP HANDLING (decided and documented, not silently patched):
+
+1. Spec says "verify capital_allocation.csv from Sprint 2 is complete for
+   all 92 companies x all years" -- but output/capital_allocation.csv does
+   not exist anywhere in the project (checked: not in output/, not
+   referenced as already generated in any prior sprint retro). There is
+   nothing to verify. Generating it now via cashflow_kpis.generate_
+   capital_allocation_output() (the same fixed function Day 31 uses),
+   which is the only place in the codebase that actually implements the
+   8-pattern classifier -- rather than blocking on a file that was never
+   produced.
+2. "All years" coverage is uneven across companies (2 to 12 years per
+   company, and 2 companies -- AMBUJACEM, ATGL -- have zero cashflow rows
+   at all, per Day 31). The distribution summary and pattern-change report
+   below only use whatever years each company actually has; companies
+   with 0 or 1 year of cash flow data can't have a "year-over-year change"
+   by definition and are correctly absent from pattern_changes.csv, not
+   an error.
+
+— NLP — Auto Pros/Cons Generator
