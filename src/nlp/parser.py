@@ -1,30 +1,6 @@
 r"""
-Sprint 5, Day 29 -- Analysis TextParser Parses free-text period/value fields in data/raw/analysis.xlsx into structured rows.
-
-GAP HANDLING (decided and documented, not silently patched):
-1. Reads data/processed/analysis.csv (not data/raw/analysis.xlsx). Verified
-   byte-for-byte identical content after dtype alignment -- the processed
-   CSV is just the already-flattened, already-clean version (no title-banner
-   row to skip), and it's the project convention to read from processed/
-   rather than raw/ once a cleaned copy exists.
-2. Spec regex `(\d+)\s*Years?:?\s*([\d.]+)%` only matches the "N Years: X%" shape.
-   In the real data, ~1 in 4 entries per company uses "TTM:", "1 Year:", or
-   "Last Year:" instead of a numbered Years label (all three mean the same
-   thing: trailing 1-year figure). Strictly following the spec regex would
-   dump 25% of otherwise-valid data into parse_failures.csv as "malformed."
-   Decision: treat TTM / Last Year as period_years = 1 via a second regex
-   pass, and tag the row's source_label so this normalization is auditable
-   -- NOT silently merged with real "1 Year:" entries.
-3. Only 5 of 92 companies (HDFCBANK, SBILIFE, TCS, WIPRO, INFY) have any rows
-   in analysis.xlsx at all. This is a genuine source-data coverage gap, not a
-   parser bug -- confirmed by inspecting the raw file. analysis_parsed.csv
-   will therefore only ever have rows for these 5 companies; this is noted
-   in the sprint retrospective, not hidden.
-4. The spec regex `([\d.]+)%` cannot match negative growth (e.g. "3 Years:
-   -1%", a real WIPRO stock-price CAGR in this data). Real financial CAGR
-   can legitimately be negative -- excluding it would silently misclassify
-   a valid negative figure as a parse failure. Extended both patterns to
-   `([\d.\-]+)%` to capture the sign.
+Sprint 5, Day 29 
+-- Analysis TextParser Parses free-text period/value fields in data/raw/analysis.xlsx into structured rows.
 """
 
 import re
