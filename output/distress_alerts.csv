@@ -1,0 +1,14 @@
+company_id,sector,cfo_value,cff_value,latest_net_profit,likely_financial_sector_pattern
+AXISBANK,Financials,-5555.0,22341.0,24861,True
+BAJAJFINSV,Financials,-68674.0,82709.0,15595,True
+BAJFINANCE,Financials,-72760.0,82415.0,14451,True
+BANKBARODA,Financials,-6274.0,5476.0,18869,True
+BHEL,Industrials,-3713.0,2656.0,282,False
+CHOLAFIN,Financials,-35683.0,38471.0,3420,True
+GRASIM,Industrials,-10719.0,33908.0,9926,False
+M&M,Consumer Discretionary,-5630.0,12281.0,12270,False
+PFC,Financials,-97820.0,101261.0,26461,True
+PNB,Financials,-27939.0,3518.0,9157,True
+RECLTD,Financials,-57723.0,59588.0,14145,True
+SHRIRAMFIN,Financials,-31101.0,27609.0,7399,True
+TVSMOTOR,Consumer Discretionary,-1253.0,2759.0,1779,False

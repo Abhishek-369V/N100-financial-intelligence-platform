@@ -148,6 +148,178 @@ def classify_capital_allocation(cfo, cfi, cff, cfo_pat_ratio=None):
         return "Unclassified"
 
 
+def detect_distress_signal(cfo, cff):
+    """
+    Distress Signal: CFO < 0 AND CFF > 0 in the latest year -- raising cash
+    from financing (new debt/equity) while operations are burning cash.
+    A classic "propping up the business with outside money" red flag.
+    """
+    return cfo < 0 and cff > 0
+
+
+def detect_deleveraging(cff, borrowings_current, borrowings_prior):
+    """
+    Deleveraging: CFF < 0 AND borrowings declining year-over-year --
+    actively paying down debt rather than just having a negative financing
+    year for some other reason (e.g. a big dividend payout with flat debt).
+    Returns False (not None) when prior-year borrowings are unavailable,
+    since "can't confirm a decline" is not the same claim as "found a decline".
+    """
+    if borrowings_prior is None or borrowings_current is None:
+        return False
+    return cff < 0 and borrowings_current < borrowings_prior
+
+
+def fcf_cagr(fcf_series):
+    """
+    CAGR of free cash flow across up to 5 years: (end/start)^(1/n) - 1, in %.
+    GAP: CAGR is mathematically undefined when the start or end value is
+    <= 0 (can't take a root of a negative/zero base) -- FCF is explicitly
+    allowed to be negative (see free_cash_flow() docstring), so this is a
+    real, expected case here, not an edge case to crash on. Returns None
+    in that situation rather than a fabricated/misleading number, and the
+    caller (generate_cashflow_intelligence_output) surfaces that as a
+    genuine "N/A", not a silent zero.
+    """
+    series = list(fcf_series)
+    if len(series) < 2:
+        return None
+    start, end = series[0], series[-1]
+    n = len(series) - 1
+    if start <= 0 or end <= 0:
+        return None
+    return round(((end / start) ** (1 / n) - 1) * 100, 2)
+
+
+def generate_cashflow_intelligence_output(cashflow_df, pnl_df, bs_df, sectors_df, companies_ids):
+    """
+    Builds one row per company for output/cashflow_intelligence.xlsx with:
+    company_id, sector, cfo_quality_score, cfo_quality_label,
+    capex_intensity_pct, capex_label, fcf_cagr_5yr, fcf_conversion_pct,
+    distress_flag, deleveraging_flag, capital_allocation_label
+
+    All four input DataFrames are expected sorted by year ascending per
+    company (caller's responsibility, same convention as the rest of this
+    module) so "latest" = .iloc[-1] and "last N years" = .tail(N).
+    """
+    rows = []
+    for company_id in companies_ids:
+        cf = cashflow_df[cashflow_df["company_id"] == company_id].reset_index(drop=True)
+        p = pnl_df[pnl_df["company_id"] == company_id].reset_index(drop=True)
+        bs = bs_df[bs_df["company_id"] == company_id].reset_index(drop=True)
+        sector_match = sectors_df[sectors_df["company_id"] == company_id]
+        sector = sector_match.iloc[0]["broad_sector"] if len(sector_match) else None
+
+        if len(cf) == 0:
+            # No cash flow history at all for this company -- can't compute any
+            # of these features. Emit a row of Nones rather than skipping the
+            # company outright, so it still appears in the 92-row output file
+            # (Sprint 6 Gate AC-15-style expectation of full coverage).
+            rows.append({
+                "company_id": company_id, "sector": sector,
+                "cfo_quality_score": None, "cfo_quality_label": None,
+                "capex_intensity_pct": None, "capex_label": None,
+                "fcf_cagr_5yr": None, "fcf_conversion_pct": None,
+                "distress_flag": None, "deleveraging_flag": None,
+                "capital_allocation_label": None,
+            })
+            continue
+
+        cf_5yr = cf.tail(5)
+        merged_5yr = cf_5yr.merge(p[["year", "net_profit"]], on="year", how="left")
+
+        if merged_5yr["net_profit"].notna().all() and len(merged_5yr) > 0:
+            quality_score, quality_label = cfo_quality_score(
+                merged_5yr["operating_activity"], merged_5yr["net_profit"]
+            )
+        else:
+            quality_score, quality_label = None, None
+
+        latest_cf = cf.iloc[-1]
+        latest_p_match = p[p["year"] == latest_cf["year"]]
+        latest_sales = latest_p_match.iloc[0]["sales"] if len(latest_p_match) else None
+        latest_op_profit = latest_p_match.iloc[0]["operating_profit"] if len(latest_p_match) else None
+
+        capex_pct, capex_label = capex_intensity(latest_cf["investing_activity"], latest_sales)
+
+        fcf_series = cf_5yr["operating_activity"] + cf_5yr["investing_activity"]
+        cagr = fcf_cagr(fcf_series)
+
+        latest_fcf = free_cash_flow(latest_cf["operating_activity"], latest_cf["investing_activity"])
+        conversion = fcf_conversion_rate(latest_fcf, latest_op_profit)
+
+        distress = detect_distress_signal(latest_cf["operating_activity"], latest_cf["financing_activity"])
+
+        borrowings_current = borrowings_prior = None
+        if len(bs) >= 2:
+            latest_bs = bs[bs["year"] == latest_cf["year"]]
+            prior_year_rows = bs[bs["year"] < latest_cf["year"]]
+            if len(latest_bs):
+                borrowings_current = latest_bs.iloc[0]["borrowings"]
+            if len(prior_year_rows):
+                borrowings_prior = prior_year_rows.iloc[-1]["borrowings"]
+        deleveraging = detect_deleveraging(latest_cf["financing_activity"], borrowings_current, borrowings_prior)
+
+        cfo_pat_ratio = None
+        if latest_p_match.iloc[0]["net_profit"] if len(latest_p_match) else 0:
+            net_profit = latest_p_match.iloc[0]["net_profit"]
+            if net_profit != 0:
+                cfo_pat_ratio = latest_cf["operating_activity"] / net_profit
+        pattern_label = classify_capital_allocation(
+            latest_cf["operating_activity"], latest_cf["investing_activity"],
+            latest_cf["financing_activity"], cfo_pat_ratio=cfo_pat_ratio,
+        )
+
+        rows.append({
+            "company_id": company_id, "sector": sector,
+            "cfo_quality_score": quality_score, "cfo_quality_label": quality_label,
+            "capex_intensity_pct": capex_pct, "capex_label": capex_label,
+            "fcf_cagr_5yr": cagr, "fcf_conversion_pct": conversion,
+            "distress_flag": distress, "deleveraging_flag": deleveraging,
+            "capital_allocation_label": pattern_label,
+        })
+
+    return pd.DataFrame(rows)
+
+
+def generate_distress_alerts(cashflow_intelligence_df, cashflow_df, pnl_df):
+    """
+    output/distress_alerts.csv -- companies flagged with distress signal,
+    including CFO value, CFF value, and latest net profit (per spec).
+
+    CAVEAT (not filtered out, just labelled): CFO<0 AND CFF>0 is the given
+    spec definition, but for Financials-sector companies (banks, NBFCs)
+    this pattern is close to their normal business model -- loan
+    disbursements count as operating outflow, and raising deposits/
+    borrowings is routine financing, not distress. 9 of the 13 flagged
+    companies here are Financials with strong positive net profit (e.g.
+    AXISBANK: CFO -5,555cr, net profit +24,861cr) -- clearly not actual
+    distress. Added a sector column so a reader isn't misled into reading
+    every row here as equally alarming; a real analyst pass would filter
+    non-financials for the genuine warning signals.
+    """
+    flagged = cashflow_intelligence_df[cashflow_intelligence_df["distress_flag"] == True]
+    rows = []
+    for _, row in flagged.iterrows():
+        company_id = row["company_id"]
+        cf = cashflow_df[cashflow_df["company_id"] == company_id].sort_values("year")
+        p = pnl_df[pnl_df["company_id"] == company_id].sort_values("year")
+        if len(cf) == 0:
+            continue
+        latest_cf = cf.iloc[-1]
+        latest_p_match = p[p["year"] == latest_cf["year"]]
+        net_profit = latest_p_match.iloc[0]["net_profit"] if len(latest_p_match) else None
+        rows.append({
+            "company_id": company_id,
+            "sector": row["sector"],
+            "cfo_value": latest_cf["operating_activity"],
+            "cff_value": latest_cf["financing_activity"],
+            "latest_net_profit": net_profit,
+            "likely_financial_sector_pattern": row["sector"] == "Financials",
+        })
+    return pd.DataFrame(rows)
+
+
 def generate_capital_allocation_output(df):
     """
     Runs classify_capital_allocation() across every company-year row in df,
@@ -186,3 +358,33 @@ def generate_capital_allocation_output(df):
             "pattern_label": label,
         })
     return pd.DataFrame(results)
+
+
+if __name__ == "__main__":
+    import sqlite3
+    from pathlib import Path
+
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    con = sqlite3.connect(base_dir / "db" / "nifty100.db")
+    cashflow_df = pd.read_sql("SELECT * FROM cashflow ORDER BY company_id, year", con)
+    pnl_df = pd.read_sql("SELECT * FROM profitandloss ORDER BY company_id, year", con)
+    bs_df = pd.read_sql("SELECT * FROM balancesheet ORDER BY company_id, year", con)
+    sectors_df = pd.read_sql("SELECT company_id, broad_sector FROM sectors", con)
+    companies_ids = pd.read_sql("SELECT id AS company_id FROM companies", con)["company_id"].tolist()
+    con.close()
+
+    out_dir = base_dir / "output"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    ci_df = generate_cashflow_intelligence_output(cashflow_df, pnl_df, bs_df, sectors_df, companies_ids)
+    ci_df.to_excel(out_dir / "cashflow_intelligence.xlsx", index=False)
+
+    alerts_df = generate_distress_alerts(ci_df, cashflow_df, pnl_df)
+    alerts_df.to_csv(out_dir / "distress_alerts.csv", index=False)
+
+    print(f"cashflow_intelligence.xlsx rows: {len(ci_df)} / 92")
+    print(f"Rows with no cash flow history: {(ci_df['cfo_quality_label'].isna()).sum()}")
+    print(f"Distress alerts: {len(alerts_df)}")
+    print(ci_df["capital_allocation_label"].value_counts())
+    print(ci_df["cfo_quality_label"].value_counts(dropna=False))
+    print(ci_df["capex_label"].value_counts(dropna=False))
