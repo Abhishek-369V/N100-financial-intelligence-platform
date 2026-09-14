@@ -1,6 +1,6 @@
 ## **Day 29: NLP — Analysis Text Parser**
 
-GAP HANDLING (decided and documented, not silently patched):
+GAP HANDLING (decided and documented):
 
 1. Reads data/processed/analysis.csv (not data/raw/analysis.xlsx). Verified
    byte-for-byte identical content after dtype alignment -- the processed
@@ -28,7 +28,7 @@ GAP HANDLING (decided and documented, not silently patched):
 
 ## **Day 30: NLP — Auto Pros/Cons Generator**
 
-GAP HANDLING (decided and documented):
+GAP HANDLING:
 
 1. financial_ratios (the primary source for 10 of the 12 pro rules and
    10 of the 12 con rules) is missing 2 of 92 companies entirely: SBIN
@@ -65,7 +65,7 @@ GAP HANDLING (decided and documented):
 
 ## **Day 32 — Capital Allocation Report:**
 
-GAP HANDLING (decided and documented, not silently patched):
+GAP HANDLING:
 
 1. Spec says "verify capital_allocation.csv from Sprint 2 is complete for
    all 92 companies x all years" -- but output/capital_allocation.csv does
@@ -84,4 +84,31 @@ GAP HANDLING (decided and documented, not silently patched):
    by definition and are correctly absent from pattern_changes.csv, not
    an error.
 
-— NLP — Auto Pros/Cons Generator
+
+## **Day 33 — PDF Tearsheet Template (ReportLab):**
+GAP HANDLING:
+1. Spec asks for a "ROE and ROCE dual-axis line chart" over years, but
+   there is no per-year ROCE anywhere in the schema -- companies.
+   roce_percentage is a single static (presumably latest-year) value, not
+   a time series. Computed a per-year ROCE proxy instead:
+       ROCE_proxy = operating_profit / (equity_capital + reserves + borrowings) * 100
+   (EBIT / Capital Employed, the standard formula, using operating_profit
+   as the EBIT proxy per Screener.in convention -- same proxy already used
+   in cashflow_kpis.py's Net Debt/EBITDA rule). Charted as "ROCE (derived)"
+   and labelled as such in the legend, not presented as an official figure.
+2. companies.roe_percentage looks unreliable for this purpose -- e.g. TCS
+   shows 0.52 where financial_ratios.return_on_equity_pct shows 50.94 for
+   the same year (looks like a fraction vs a percentage, an upstream
+   scaling inconsistency). Used financial_ratios.return_on_equity_pct
+   throughout instead -- it's already the source every other module in
+   this codebase (composite_score, pros_cons_generator, cashflow_kpis)
+   uses for ROE, so this also keeps the tearsheet consistent with those.
+3. Cash Flow "waterfall" is built as a true cascading waterfall (each bar
+   starts where the previous one's cumulative total ended), not just four
+   bars side by side, so CFO -> CFI -> CFF -> Net Cash Flow reads as an
+   actual bridge.
+4. WORDWRAP requirement (spec: "All table columns must use WORDWRAP to
+   prevent text overflow") is met by building the KPI tile grid and the
+   Pros/Cons sections as ReportLab Platypus Tables with Paragraph cell
+   content (which wraps automatically inside its column width), rather
+   than raw canvas.drawString calls that can silently run off the page.
