@@ -21,8 +21,17 @@ def load_data():
     ratios = pd.read_sql("SELECT * FROM financial_ratios ORDER BY company_id, year", con)
     pnl = pd.read_sql("SELECT * FROM profitandloss ORDER BY company_id, year", con)
     companies = pd.read_sql("SELECT id AS company_id FROM companies", con)
+    sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", con)
     con.close()
-    return ratios, pnl, companies
+    return ratios, pnl, companies, sectors
+
+
+# Leverage-shaped rules that are structurally misleading for banks/NBFCs, whose business model IS holding high leverage (deposits/borrowings funding loans).
+# GAP fix (found during Day 33 tearsheet visual QA): 
+# HDFCBANK was showing "Debt-to-equity of 6.81 is elevated for a non-financial company" as a con -- wrong on its face, 
+# a bank's D/E of 6.81 is unremarkable. 
+# Same structural issue as the Day 31 Distress Signal caveat, just missed here in Day 30.
+LEVERAGE_RULES_SKIPPED_FOR_FINANCIALS = {"C1", "C6", "C10", "C11"}
 
 
 def consecutive_from_end(series, condition_fn):
@@ -166,7 +175,7 @@ def evaluate_company(company_id, r, p):
 
         # C10 (ROCE < 10%) uses companies.roce_percentage, joined in generate_pros_cons()
         # C11 (Net Debt > 3x EBITDA): Net Debt proxied by total_debt_cr (gross borrowings,
-        # no cash line item in schema -- documented limitation, see sprint5_retro.md).
+        # no cash line item in schema -- documented limitation, see in sprint5_retro).
         if latest["total_debt_cr"] is not None and len(p) and p.iloc[-1]["operating_profit"]:
             ebitda_proxy = p.iloc[-1]["operating_profit"]
             if ebitda_proxy > 0 and latest["total_debt_cr"] > 3 * ebitda_proxy:
@@ -185,21 +194,24 @@ def _row(company_id, type_, rule_id, confidence, text):
             "text": text, "confidence_pct": confidence}
 
 
-def add_roce_rule(results_by_company, companies_with_roce):
+def add_roce_rule(results_by_company, companies_with_roce, financial_company_ids):
     """C10: ROCE < 10% -- companies.roce_percentage is a single static field, not
-    joined into financial_ratios, so handled as a separate pass."""
+    joined into financial_ratios, so handled as a separate pass. Skipped for
+    Financials (see LEVERAGE_RULES_SKIPPED_FOR_FINANCIALS)."""
     for _, row in companies_with_roce.iterrows():
+        if row["company_id"] in financial_company_ids:
+            continue
         if row["roce_percentage"] is not None and row["roce_percentage"] < 10:
             results_by_company.setdefault(row["company_id"], []).append(
                 _row(row["company_id"], "con", "C10", 80,
                      "Return on capital employed below 10% suggests the business is not generating sufficient returns on invested capital"))
 
 
-def add_fallback_coverage(results_by_company, all_company_ids, ratios, pnl):
+def add_fallback_coverage(results_by_company, all_company_ids, ratios, pnl, financial_company_ids):
     """
     Guarantees the exit criteria (>=1 pro AND >=1 con per company) for
     companies the confidence-gated rules above didn't reach -- SBIN, ATGL,
-    and any thin-history company. See sprint5_retro.md #4.
+    and any thin-history company. See module docstring gap #4.
     """
     for company_id in all_company_ids:
         rows = results_by_company.setdefault(company_id, [])
@@ -208,6 +220,7 @@ def add_fallback_coverage(results_by_company, all_company_ids, ratios, pnl):
 
         cr = ratios[ratios["company_id"] == company_id]
         cp = pnl[pnl["company_id"] == company_id]
+        is_financial = company_id in financial_company_ids
 
         if not has_pro:
             if len(cr) and cr.iloc[-1]["return_on_equity_pct"] is not None:
@@ -222,7 +235,14 @@ def add_fallback_coverage(results_by_company, all_company_ids, ratios, pnl):
                     "Insufficient multi-year ratio history to assess quality trend; latest available financials show no immediate red flags"))
 
         if not has_con:
-            if len(cr) and cr.iloc[-1]["debt_to_equity"] is not None and cr.iloc[-1]["debt_to_equity"] > 0:
+            # GAP fix: D/E is not a meaningful watch-point for a bank/NBFC (same reasoning as LEVERAGE_RULES_SKIPPED_FOR_FINANCIALS) --
+            # the fallback must not reintroduce the exact issue the rule filter above was built to remove. 
+            # Financials fall back to OPM trend instead; non-financials keep the D/E fallback.
+            if is_financial and len(cr) and cr.iloc[-1]["operating_profit_margin_pct"] is not None:
+                val = cr.iloc[-1]["operating_profit_margin_pct"]
+                rows.append(_row(company_id, "con", "FALLBACK", 61,
+                    f"Operating profit margin of {val:.1f}% in the latest year is the most notable available watch-point for this company"))
+            elif not is_financial and len(cr) and cr.iloc[-1]["debt_to_equity"] is not None and cr.iloc[-1]["debt_to_equity"] > 0:
                 val = cr.iloc[-1]["debt_to_equity"]
                 rows.append(_row(company_id, "con", "FALLBACK", 61,
                     f"Debt-to-equity of {val:.2f} in the latest year is the most notable available watch-point for this company"))
@@ -232,21 +252,25 @@ def add_fallback_coverage(results_by_company, all_company_ids, ratios, pnl):
 
 
 def generate_pros_cons():
-    ratios, pnl, companies = load_data()
+    ratios, pnl, companies, sectors = load_data()
 
     con = sqlite3.connect(DB_PATH)
     companies_roce = pd.read_sql("SELECT id AS company_id, roce_percentage FROM companies", con)
     con.close()
+
+    financial_company_ids = set(sectors[sectors["broad_sector"] == "Financials"]["company_id"])
 
     results_by_company = {}
     for company_id in companies["company_id"]:
         r = ratios[ratios["company_id"] == company_id].reset_index(drop=True)
         p = pnl[pnl["company_id"] == company_id].reset_index(drop=True)
         rows = [row for row in evaluate_company(company_id, r, p) if row["confidence_pct"] > CONFIDENCE_THRESHOLD]
+        if company_id in financial_company_ids:
+            rows = [row for row in rows if row["rule_id"] not in LEVERAGE_RULES_SKIPPED_FOR_FINANCIALS]
         results_by_company[company_id] = rows
 
-    add_roce_rule(results_by_company, companies_roce)
-    add_fallback_coverage(results_by_company, companies["company_id"].tolist(), ratios, pnl)
+    add_roce_rule(results_by_company, companies_roce, financial_company_ids)
+    add_fallback_coverage(results_by_company, companies["company_id"].tolist(), ratios, pnl, financial_company_ids)
 
     all_rows = [row for rows in results_by_company.values() for row in rows]
     out_df = pd.DataFrame(all_rows, columns=["company_id", "type", "rule_id", "text", "confidence_pct"])
