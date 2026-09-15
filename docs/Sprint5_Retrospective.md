@@ -112,3 +112,21 @@ GAP HANDLING:
    Pros/Cons sections as ReportLab Platypus Tables with Paragraph cell
    content (which wraps automatically inside its column width), rather
    than raw canvas.drawString calls that can silently run off the page.
+
+
+## **Day 34 — Batch Sector Report Generation:**
+
+GAP HANDLING:
+1. Spec assumes 11 sectors ("11 sector PDFs", repeated again in Sprint 6
+   Day 40's test_sectors.py as "returns exactly 11 sectors"). The actual
+   sectors table has 10 distinct broad_sector values covering all 92
+   companies (verified: counts sum to 92, no company missing a sector).
+   Generating 10 sector PDFs, matching the real data, not forcing an
+   11th empty one to match the spec number. Flagging this now so it
+   doesn't resurface as a surprise "failure" at Sprint 6 Day 40/45.
+2. The 8 metrics per company use financial_ratios (latest year) for
+   ROE/D-E/OPM/Revenue CAGR/PAT CAGR, companies.roce_percentage for ROCE
+   (same static-latest caveat as Day 33's tearsheet), and market_cap
+   (latest year) for P/E and Dividend Yield -- chosen as the 8 metrics
+   already used consistently everywhere else in this codebase, since the
+   spec doesn't name which 8.
