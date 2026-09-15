@@ -3,6 +3,7 @@ Sprint 5, Day 33: PDF Tearsheet Template (ReportLab)
 """
 
 import sqlite3
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -74,7 +75,8 @@ def load_company_data(ticker):
     if ci_path.exists():
         ci = pd.read_excel(ci_path)
         match = ci[ci["company_id"] == ticker]
-        data["capital_allocation_label"] = match.iloc[0]["capital_allocation_label"] if len(match) else "Unavailable"
+        raw_label = match.iloc[0]["capital_allocation_label"] if len(match) else None
+        data["capital_allocation_label"] = raw_label if pd.notna(raw_label) else "Unavailable (no cash flow data)"
     else:
         data["capital_allocation_label"] = "Unavailable"
 
@@ -87,6 +89,13 @@ def has_enough_history(data, min_years=3):
 
 
 def compute_roce_proxy(bs_row, pnl_row):
+    """
+    Returns None (not a crash) when operating_profit is missing -- found via Day 34 batch run: PNB (a bank) has
+    operating_profit = None for at least one year in profitandloss, which the earlier 5-company spot-check
+    (TCS/HDFCBANK/RELIANCE/SUNPHARMA/TATASTEEL) never happened to hit.
+    """
+    if pnl_row["operating_profit"] is None or pd.isna(pnl_row["operating_profit"]):
+        return None
     capital_employed = (bs_row["equity_capital"] or 0) + (bs_row["reserves"] or 0) + (bs_row["borrowings"] or 0)
     if capital_employed <= 0:
         return None
@@ -346,13 +355,62 @@ def build_tearsheet(ticker):
     return "generated"
 
 
-if __name__ == "__main__":
-    test_tickers = ["TCS", "HDFCBANK", "RELIANCE", "SUNPHARMA", "TATASTEEL"]
-    for ticker in test_tickers:
+def run_batch_tearsheets():
+    """
+    Day 34 -- batch tearsheet generation for all 92 companies.
+    Returns (generated_list, skipped_df, failed_list). Companies with <3 years of profitandloss history are skipped 
+    (build_tearsheet's own rule) and logged to output/skipped_tearsheets.csv, not silently dropped...
+    """
+    con = sqlite3.connect(DB_PATH)
+    all_tickers = pd.read_sql("SELECT id AS company_id FROM companies", con)["company_id"].tolist()
+    con.close()
+
+    generated, skipped, failed = [], [], []
+    for ticker in all_tickers:
         try:
             result = build_tearsheet(ticker)
-            path = TEARSHEET_DIR / f"{ticker}_tearsheet.pdf"
-            size_kb = path.stat().st_size / 1024 if path.exists() else 0
-            print(f"{ticker}: {result} ({size_kb:.1f} KB)")
+            if result == "generated":
+                generated.append(ticker)
+            else:
+                skipped.append(ticker)
         except Exception as exc:
-            print(f"{ticker}: FAILED - {exc}")
+            failed.append({"company_id": ticker, "error": str(exc)})
+
+    skipped_df = pd.DataFrame({"company_id": skipped, "reason": "fewer than 3 years of profitandloss data"})
+    skipped_df.to_csv(OUTPUT_DIR / "skipped_tearsheets.csv", index=False)
+
+    if failed:
+        # Genuine failures (not the expected "thin history" skip) 
+        # get their own log rather than being silently absorbed into skipped_tearsheets.csv,
+        # which is specifically for the documented skip rule.
+        pd.DataFrame(failed).to_csv(OUTPUT_DIR / "tearsheet_failures.csv", index=False)
+
+    return generated, skipped_df, failed
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "batch":
+        generated, skipped_df, failed = run_batch_tearsheets()
+        print(f"Generated: {len(generated)}")
+        print(f"Skipped (thin history): {len(skipped_df)}")
+        if len(skipped_df):
+            print(skipped_df.to_string(index=False))
+        print(f"Genuine failures: {len(failed)}")
+        if failed:
+            print(failed)
+
+        actual_count = len(list(TEARSHEET_DIR.glob("*_tearsheet.pdf")))
+        print(f"\nFiles on disk: {actual_count} (expected {len(generated)})")
+
+        undersized = [p.name for p in TEARSHEET_DIR.glob("*_tearsheet.pdf") if p.stat().st_size < 30 * 1024]
+        print(f"Under 30KB: {len(undersized)} {undersized}")
+    else:
+        test_tickers = ["TCS", "HDFCBANK", "RELIANCE", "SUNPHARMA", "TATASTEEL"]
+        for ticker in test_tickers:
+            try:
+                result = build_tearsheet(ticker)
+                path = TEARSHEET_DIR / f"{ticker}_tearsheet.pdf"
+                size_kb = path.stat().st_size / 1024 if path.exists() else 0
+                print(f"{ticker}: {result} ({size_kb:.1f} KB)")
+            except Exception as exc:
+                print(f"{ticker}: FAILED - {exc}")
