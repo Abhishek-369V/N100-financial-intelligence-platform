@@ -1,93 +1,93 @@
 company_id,cluster_id,cluster_name,distance_from_centroid
-ABB,0,Cluster 0,0.7858
-ADANIENSOL,0,Cluster 0,1.4013
-ADANIENT,0,Cluster 0,1.1653
-ADANIGREEN,1,Cluster 1,2.6567
-ADANIPORTS,3,Cluster 3,1.1511
-ADANIPOWER,0,Cluster 0,1.3905
-AMBUJACEM,0,Cluster 0,0.6273
-APOLLOHOSP,0,Cluster 0,0.8698
-ASIANPAINT,0,Cluster 0,0.2833
-ATGL,0,Cluster 0,0.5905
-AXISBANK,1,Cluster 1,0.9171
-BAJAJ-AUTO,0,Cluster 0,0.4861
-BAJAJFINSV,1,Cluster 1,0.9766
-BAJAJHLDNG,3,Cluster 3,2.4702
-BAJFINANCE,1,Cluster 1,1.5661
-BANKBARODA,1,Cluster 1,1.8615
-BEL,2,Cluster 2,1.1037
-BHARTIARTL,3,Cluster 3,1.2876
-BHEL,0,Cluster 0,2.3052
-BOSCHLTD,0,Cluster 0,0.9703
-BPCL,0,Cluster 0,0.6795
-BRITANNIA,0,Cluster 0,0.3963
-CANBK,1,Cluster 1,2.7671
-CHOLAFIN,1,Cluster 1,0.9232
-CIPLA,3,Cluster 3,0.9478
-COALINDIA,3,Cluster 3,1.167
-DABUR,0,Cluster 0,0.5523
-DIVISLAB,0,Cluster 0,0.5093
-DLF,0,Cluster 0,2.5715
-DMART,0,Cluster 0,1.349
-DRREDDY,0,Cluster 0,1.0386
-EICHERMOT,0,Cluster 0,1.0058
-GAIL,4,Cluster 4,1.1584
-GODREJCP,0,Cluster 0,0.7006
-GRASIM,0,Cluster 0,0.3556
-HAL,2,Cluster 2,1.1037
-HAVELLS,0,Cluster 0,0.4689
-HCLTECH,0,Cluster 0,2.166
-HDFCBANK,1,Cluster 1,0.6088
-HDFCLIFE,3,Cluster 3,1.35
-HEROMOTOCO,3,Cluster 3,1.663
-HINDALCO,3,Cluster 3,0.6232
-HINDUNILVR,3,Cluster 3,0.6919
-ICICIBANK,1,Cluster 1,0.5925
-ICICIGI,3,Cluster 3,1.7275
-ICICIPRULI,3,Cluster 3,1.0673
-INDIGO,3,Cluster 3,1.7472
-INDUSINDBK,1,Cluster 1,0.6438
-INFY,0,Cluster 0,0.3423
-IOC,0,Cluster 0,0.7209
-IRCTC,0,Cluster 0,1.0841
-IRFC,1,Cluster 1,1.9119
-ITC,0,Cluster 0,0.8897
-JINDALSTEL,0,Cluster 0,1.3744
-JIOFIN,3,Cluster 3,0.7929
-JSWENERGY,0,Cluster 0,1.4684
-JSWSTEEL,0,Cluster 0,0.6342
-KOTAKBANK,3,Cluster 3,1.485
-LICI,0,Cluster 0,1.5711
-LODHA,0,Cluster 0,2.2469
-LT,0,Cluster 0,0.33
-LTIM,0,Cluster 0,2.6252
-M&M,0,Cluster 0,0.8639
-MARUTI,0,Cluster 0,0.3669
-MOTHERSON,0,Cluster 0,1.0426
-NAUKRI,0,Cluster 0,0.8765
-NESTLEIND,0,Cluster 0,0.5152
-NHPC,4,Cluster 4,1.1584
-NTPC,0,Cluster 0,0.6317
-ONGC,0,Cluster 0,0.7306
-PFC,1,Cluster 1,1.2987
-PIDILITIND,0,Cluster 0,0.4411
-PNB,1,Cluster 1,1.2971
-POWERGRID,3,Cluster 3,1.2251
-RECLTD,1,Cluster 1,2.0633
-RELIANCE,0,Cluster 0,0.3727
-SBILIFE,0,Cluster 0,2.0299
-SBIN,1,Cluster 1,1.0307
-SHREECEM,0,Cluster 0,0.2392
-SHRIRAMFIN,1,Cluster 1,1.3365
-SIEMENS,0,Cluster 0,0.4575
-SUNPHARMA,0,Cluster 0,0.573
-TATACONSUM,0,Cluster 0,1.5472
-TATAMOTORS,0,Cluster 0,0.6195
-TATAPOWER,0,Cluster 0,0.8802
-TATASTEEL,0,Cluster 0,0.6645
-TCS,0,Cluster 0,0.3405
-TECHM,0,Cluster 0,0.6426
-TITAN,0,Cluster 0,1.4202
-TORNTPHARM,0,Cluster 0,0.7877
-TRENT,0,Cluster 0,3.4432
-TVSMOTOR,0,Cluster 0,1.242
+ABB,0,Core Balanced Performers,0.7858
+ADANIENSOL,0,Core Balanced Performers,1.4013
+ADANIENT,0,Core Balanced Performers,1.1653
+ADANIGREEN,1,Leveraged Growth Compounders,2.6567
+ADANIPORTS,3,High-Quality Low-Leverage Compounders,1.1511
+ADANIPOWER,0,Core Balanced Performers,1.3905
+AMBUJACEM,0,Core Balanced Performers,0.6273
+APOLLOHOSP,0,Core Balanced Performers,0.8698
+ASIANPAINT,0,Core Balanced Performers,0.2833
+ATGL,0,Core Balanced Performers,0.5905
+AXISBANK,1,Leveraged Growth Compounders,0.9171
+BAJAJ-AUTO,0,Core Balanced Performers,0.4861
+BAJAJFINSV,1,Leveraged Growth Compounders,0.9766
+BAJAJHLDNG,3,High-Quality Low-Leverage Compounders,2.4702
+BAJFINANCE,1,Leveraged Growth Compounders,1.5661
+BANKBARODA,1,Leveraged Growth Compounders,1.8615
+BEL,2,Extreme-ROE Outliers (Low-Equity-Base PSUs),1.1037
+BHARTIARTL,3,High-Quality Low-Leverage Compounders,1.2876
+BHEL,0,Core Balanced Performers,2.3052
+BOSCHLTD,0,Core Balanced Performers,0.9703
+BPCL,0,Core Balanced Performers,0.6795
+BRITANNIA,0,Core Balanced Performers,0.3963
+CANBK,1,Leveraged Growth Compounders,2.7671
+CHOLAFIN,1,Leveraged Growth Compounders,0.9232
+CIPLA,3,High-Quality Low-Leverage Compounders,0.9478
+COALINDIA,3,High-Quality Low-Leverage Compounders,1.167
+DABUR,0,Core Balanced Performers,0.5523
+DIVISLAB,0,Core Balanced Performers,0.5093
+DLF,0,Core Balanced Performers,2.5715
+DMART,0,Core Balanced Performers,1.349
+DRREDDY,0,Core Balanced Performers,1.0386
+EICHERMOT,0,Core Balanced Performers,1.0058
+GAIL,4,Low-Growth Utility Value Plays,1.1584
+GODREJCP,0,Core Balanced Performers,0.7006
+GRASIM,0,Core Balanced Performers,0.3556
+HAL,2,Extreme-ROE Outliers (Low-Equity-Base PSUs),1.1037
+HAVELLS,0,Core Balanced Performers,0.4689
+HCLTECH,0,Core Balanced Performers,2.166
+HDFCBANK,1,Leveraged Growth Compounders,0.6088
+HDFCLIFE,3,High-Quality Low-Leverage Compounders,1.35
+HEROMOTOCO,3,High-Quality Low-Leverage Compounders,1.663
+HINDALCO,3,High-Quality Low-Leverage Compounders,0.6232
+HINDUNILVR,3,High-Quality Low-Leverage Compounders,0.6919
+ICICIBANK,1,Leveraged Growth Compounders,0.5925
+ICICIGI,3,High-Quality Low-Leverage Compounders,1.7275
+ICICIPRULI,3,High-Quality Low-Leverage Compounders,1.0673
+INDIGO,3,High-Quality Low-Leverage Compounders,1.7472
+INDUSINDBK,1,Leveraged Growth Compounders,0.6438
+INFY,0,Core Balanced Performers,0.3423
+IOC,0,Core Balanced Performers,0.7209
+IRCTC,0,Core Balanced Performers,1.0841
+IRFC,1,Leveraged Growth Compounders,1.9119
+ITC,0,Core Balanced Performers,0.8897
+JINDALSTEL,0,Core Balanced Performers,1.3744
+JIOFIN,3,High-Quality Low-Leverage Compounders,0.7929
+JSWENERGY,0,Core Balanced Performers,1.4684
+JSWSTEEL,0,Core Balanced Performers,0.6342
+KOTAKBANK,3,High-Quality Low-Leverage Compounders,1.485
+LICI,0,Core Balanced Performers,1.5711
+LODHA,0,Core Balanced Performers,2.2469
+LT,0,Core Balanced Performers,0.33
+LTIM,0,Core Balanced Performers,2.6252
+M&M,0,Core Balanced Performers,0.8639
+MARUTI,0,Core Balanced Performers,0.3669
+MOTHERSON,0,Core Balanced Performers,1.0426
+NAUKRI,0,Core Balanced Performers,0.8765
+NESTLEIND,0,Core Balanced Performers,0.5152
+NHPC,4,Low-Growth Utility Value Plays,1.1584
+NTPC,0,Core Balanced Performers,0.6317
+ONGC,0,Core Balanced Performers,0.7306
+PFC,1,Leveraged Growth Compounders,1.2987
+PIDILITIND,0,Core Balanced Performers,0.4411
+PNB,1,Leveraged Growth Compounders,1.2971
+POWERGRID,3,High-Quality Low-Leverage Compounders,1.2251
+RECLTD,1,Leveraged Growth Compounders,2.0633
+RELIANCE,0,Core Balanced Performers,0.3727
+SBILIFE,0,Core Balanced Performers,2.0299
+SBIN,1,Leveraged Growth Compounders,1.0307
+SHREECEM,0,Core Balanced Performers,0.2392
+SHRIRAMFIN,1,Leveraged Growth Compounders,1.3365
+SIEMENS,0,Core Balanced Performers,0.4575
+SUNPHARMA,0,Core Balanced Performers,0.573
+TATACONSUM,0,Core Balanced Performers,1.5472
+TATAMOTORS,0,Core Balanced Performers,0.6195
+TATAPOWER,0,Core Balanced Performers,0.8802
+TATASTEEL,0,Core Balanced Performers,0.6645
+TCS,0,Core Balanced Performers,0.3405
+TECHM,0,Core Balanced Performers,0.6426
+TITAN,0,Core Balanced Performers,1.4202
+TORNTPHARM,0,Core Balanced Performers,0.7877
+TRENT,0,Core Balanced Performers,3.4432
+TVSMOTOR,0,Core Balanced Performers,1.242
