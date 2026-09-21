@@ -4,8 +4,9 @@ Day 6: Manual review of 5 random companies, year coverage check,
 flag companies with <5 years of P&L data.
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -28,7 +29,10 @@ def sample_five_companies(seed=42):
         cid = row["id"]
         print(f"\n--- {cid} ({row['company_name']}) ---")
 
-        pnl = pd.read_sql(f"SELECT year, sales, net_profit FROM profitandloss WHERE company_id = '{cid}' ORDER BY year", engine)
+        pnl = pd.read_sql(
+            f"SELECT year, sales, net_profit FROM profitandloss WHERE company_id = '{cid}' ORDER BY year",
+            engine,
+        )
         print(f"  P&L rows: {len(pnl)}  |  years: {pnl['year'].tolist()}")
 
         bs = pd.read_sql(f"SELECT COUNT(*) as cnt FROM balancesheet WHERE company_id = '{cid}'", engine)
@@ -37,7 +41,9 @@ def sample_five_companies(seed=42):
         cf = pd.read_sql(f"SELECT COUNT(*) as cnt FROM cashflow WHERE company_id = '{cid}'", engine)
         print(f"  Cash flow rows: {cf.iloc[0]['cnt']}")
 
-        sector = pd.read_sql(f"SELECT broad_sector, sub_sector FROM sectors WHERE company_id = '{cid}'", engine)
+        sector = pd.read_sql(
+            f"SELECT broad_sector, sub_sector FROM sectors WHERE company_id = '{cid}'", engine
+        )
         if len(sector) > 0:
             print(f"  Sector: {sector.iloc[0]['broad_sector']} / {sector.iloc[0]['sub_sector']}")
 
@@ -90,14 +96,14 @@ if __name__ == "__main__":
 
 
 # Findings:
-# DATA QUALITY NOTE: 
-# 1. DEFECT: 
-#    - companies.xlsx row for ticker 'ABB' has company_name = "Abbott India Ltd" — incorrect. 
+# DATA QUALITY NOTE:
+# 1. DEFECT:
+#    - companies.xlsx row for ticker 'ABB' has company_name = "Abbott India Ltd" — incorrect.
 #    - ABB (NSE) = ABB India Ltd (Industrials/Capital Goods).
-#    - Abbott India's real ticker is ABBOTINDIA. 
+#    - Abbott India's real ticker is ABBOTINDIA.
 #    - Sector/financial data is correctly aligned to ABB India; only the display name field is mislabeled.
 #    - Action: flagged to team via standups
 # 2. EXPECTED EXCEPTION:
-#    - JIOFIN — 2 years of data flagged, and this is expected, not a bug. 
-#    - Jio Financial Services was only demerged/listed in 2023, so it genuinely can't have historical financials 
+#    - JIOFIN — 2 years of data flagged, and this is expected, not a bug.
+#    - Jio Financial Services was only demerged/listed in 2023, so it genuinely can't have historical financials
 #      going back further — 2 years of coverage is correct for a company that recently listed.

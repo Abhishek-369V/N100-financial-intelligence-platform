@@ -1,7 +1,9 @@
+"""Exploratory SQL queries runner for database inspection and validation."""
+
 import sqlite3
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent.parent  
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
 SQL_PATH = BASE_DIR / "notebooks" / "exploratory_queries.sql"
 

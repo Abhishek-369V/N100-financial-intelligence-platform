@@ -13,6 +13,7 @@ DOCS_DIR = BASE_DIR / "docs"
 
 
 def export_openapi_spec():
+    """Export openapi spec."""
     schema = app.openapi()
     DOCS_DIR.mkdir(parents=True, exist_ok=True)
     out_path = DOCS_DIR / "openapi.json"
@@ -23,8 +24,8 @@ def export_openapi_spec():
 
 def build_postman_collection(openapi_schema):
     """
-    Minimal-but-valid Postman v2.1 collection derived directly from the OpenAPI paths 
-    -- one request per (path, method), grouped flat (not folder-per-tag) to keep this a straightforward, 
+    Minimal-but-valid Postman v2.1 collection derived directly from the OpenAPI paths
+    -- one request per (path, method), grouped flat (not folder-per-tag) to keep this a straightforward,
     dependency-free converter rather than pulling in a full openapi-to-postman package for a one-off export.
     """
     items = []
@@ -43,24 +44,27 @@ def build_postman_collection(openapi_schema):
 
             query_params = [
                 {"key": p["name"], "value": "", "disabled": True}
-                for p in details.get("parameters", []) if p.get("in") == "query"
+                for p in details.get("parameters", [])
+                if p.get("in") == "query"
             ]
 
-            items.append({
-                "name": details.get("summary") or f"{method.upper()} {path}",
-                "request": {
-                    "method": method.upper(),
-                    "header": [],
-                    "url": {
-                        "raw": f"{base_url}{postman_path}",
-                        "host": [base_url],
-                        "path": [p for p in postman_path.strip("/").split("/")],
-                        "variable": path_variables,
-                        "query": query_params,
+            items.append(
+                {
+                    "name": details.get("summary") or f"{method.upper()} {path}",
+                    "request": {
+                        "method": method.upper(),
+                        "header": [],
+                        "url": {
+                            "raw": f"{base_url}{postman_path}",
+                            "host": [base_url],
+                            "path": [p for p in postman_path.strip("/").split("/")],
+                            "variable": path_variables,
+                            "query": query_params,
+                        },
+                        "description": details.get("description", ""),
                     },
-                    "description": details.get("description", ""),
-                },
-            })
+                }
+            )
 
     return {
         "info": {
@@ -73,6 +77,7 @@ def build_postman_collection(openapi_schema):
 
 
 def export_postman_collection(openapi_schema):
+    """Export postman collection for the given openapi_schema."""
     collection = build_postman_collection(openapi_schema)
     out_path = DOCS_DIR / "postman_collection.json"
     with open(out_path, "w") as f:

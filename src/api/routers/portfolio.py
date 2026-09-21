@@ -15,10 +15,11 @@ STATS_PATH = BASE_DIR / "output" / "portfolio_stats.csv"
 
 @router.get("/portfolio/stats")
 def get_portfolio_stats():
+    """Get portfolio stats."""
     if not STATS_PATH.exists():
         raise HTTPException(
             status_code=404,
-            detail="portfolio_stats.csv not found — run src/analytics/cluster_profiling.py (Sprint 6 Day 37) first"
+            detail="portfolio_stats.csv not found — run src/analytics/cluster_profiling.py (Sprint 6 Day 37) first",
         )
 
     df = pd.read_csv(STATS_PATH)

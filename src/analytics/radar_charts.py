@@ -1,21 +1,26 @@
 """
-Day 19: Radar charts (8 axes) for peer-grouped companies, standalone bar charts for ungrouped companies. 
-        Exports PNG to reports/radar_charts/. 
+Day 19: Radar charts (8 axes) for peer-grouped companies, standalone bar charts for ungrouped companies.
+        Exports PNG to reports/radar_charts/.
 """
 
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-from pathlib import Path
-from sqlalchemy import create_engine
 import sys
+from pathlib import Path
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "analytics"))
 sys.path.insert(0, str(BASE_DIR / "src" / "screener"))
 
-from composite_score import winsorize, scale_0_100, compute_composite_score #type:ignore
-from presets import load_universe #type:ignore
+from composite_score import (  # type: ignore
+    compute_composite_score,
+    scale_0_100,
+    winsorize,
+)
+from presets import load_universe  # type: ignore
 
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
 OUTPUT_DIR = BASE_DIR / "reports" / "radar_charts"
@@ -23,11 +28,13 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 db_engine = create_engine(f"sqlite:///{DB_PATH}")
 
-plt.rcParams.update({
-    "font.size": 11,
-    "axes.titlesize": 13,
-    "axes.titleweight": "bold",
-})
+plt.rcParams.update(
+    {
+        "font.size": 11,
+        "axes.titlesize": 13,
+        "axes.titleweight": "bold",
+    }
+)
 
 RADAR_AXES = ["ROE", "ROCE", "NPM", "D/E", "FCF Score", "PAT CAGR 5yr", "Revenue CAGR 5yr", "Composite Score"]
 
@@ -51,7 +58,7 @@ def load_all_data():
 
 def scale_metrics_0_100(df, columns):
     """
-    Scales each metric column to 0-100 using the same winsorize+scale pipeline built in Day 17 
+    Scales each metric column to 0-100 using the same winsorize+scale pipeline built in Day 17
     -- reused here rather than reinvented, so the same outlier-safety (BEL/INDIGO-style capping) applies to radar charts too.
     """
     scaled_df = df.copy()
@@ -59,7 +66,7 @@ def scale_metrics_0_100(df, columns):
         if col not in scaled_df.columns:
             scaled_df[col] = np.nan
             continue
-        invert = (col == "debt_to_equity")  # lower D/E = better = higher score
+        invert = col == "debt_to_equity"  # lower D/E = better = higher score
         scaled_df[col + "_scaled"] = scale_0_100(winsorize(scaled_df[col]), invert=invert)
     return scaled_df
 
@@ -80,7 +87,7 @@ def get_radar_values(company_row):
 
 def draw_radar_chart(company_id, company_name, company_values, peer_avg_values, save_path):
     """
-    Draws one 8-axis radar chart: 
+    Draws one 8-axis radar chart:
     company as a filled polygon, peer group average as a dashed outline overlay -- per spec exactly.
     """
     n_axes = len(RADAR_AXES)
@@ -90,7 +97,7 @@ def draw_radar_chart(company_id, company_name, company_values, peer_avg_values, 
     company_plot_values = company_values + company_values[:1]
     peer_plot_values = peer_avg_values + peer_avg_values[:1]
 
-    fig, ax = plt.subplots(figsize=(7, 7), subplot_kw=dict(polar=True))
+    fig, ax = plt.subplots(figsize=(7, 7), subplot_kw={"polar": True})
 
     ax.plot(angles, company_plot_values, color="#1B998B", linewidth=2, label=company_id)
     ax.fill(angles, company_plot_values, color="#1B998B", alpha=0.25)
@@ -125,7 +132,10 @@ def draw_standalone_chart(company_id, company_name, composite_score, universe_av
     )
     ax.set_ylim(0, 100)
     ax.set_ylabel("Composite Quality Score (0-100)")
-    ax.set_title(f"{company_id} — {company_name}\n(No peer group assigned — compared to Nifty 100 average)", fontsize=11)
+    ax.set_title(
+        f"{company_id} — {company_name}\n(No peer group assigned — compared to Nifty 100 average)",
+        fontsize=11,
+    )
 
     for bar in bars:
         height = bar.get_height()
@@ -137,6 +147,7 @@ def draw_standalone_chart(company_id, company_name, composite_score, universe_av
 
 
 def generate_all_radar_charts():
+    """Generate all radar charts."""
     scored, peer_groups = load_all_data()
 
     raw_cols = list(RAW_METRIC_MAP.values()) + ["free_cash_flow_cr"]
@@ -177,8 +188,13 @@ def generate_all_radar_charts():
                 peer_avg_values = [
                     peer_rows[col].mean() if col in peer_rows.columns else 0
                     for col in [
-                        RAW_METRIC_MAP[a] + "_scaled" if a in RAW_METRIC_MAP else
-                        ("free_cash_flow_cr_scaled" if a == "FCF Score" else "composite_quality_score")
+                        (
+                            RAW_METRIC_MAP[a] + "_scaled"
+                            if a in RAW_METRIC_MAP
+                            else (
+                                "free_cash_flow_cr_scaled" if a == "FCF Score" else "composite_quality_score"
+                            )
+                        )
                         for a in RADAR_AXES
                     ]
                 ]

@@ -7,8 +7,9 @@ unconfirmed rules marked with a comment — verify against your team's
 actual DQ-01..16 doc if you get a complete copy.
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_PATH = BASE_DIR / "data" / "processed"
@@ -19,19 +20,37 @@ failures = []
 
 
 def log_failure(rule_id, table, description, severity, row_ref=None):
-    failures.append({
-        "rule_id": rule_id, "table": table, "description": description,
-        "severity": severity, "row_ref": row_ref,
-    })
+    """Log failure for the given rule_id, table, description, severity, row_ref."""
+    failures.append(
+        {
+            "rule_id": rule_id,
+            "table": table,
+            "description": description,
+            "severity": severity,
+            "row_ref": row_ref,
+        }
+    )
 
 
 def load_table(name):
+    """Load table for the given name."""
     return pd.read_csv(PROCESSED_PATH / f"{name}.csv")
 
 
-ALL_TABLES = ["companies", "profitandloss", "balancesheet", "cashflow",
-              "documents", "analysis", "prosandcons", "sectors",
-              "stock_prices", "financial_ratios", "peer_groups", "market_cap"]
+ALL_TABLES = [
+    "companies",
+    "profitandloss",
+    "balancesheet",
+    "cashflow",
+    "documents",
+    "analysis",
+    "prosandcons",
+    "sectors",
+    "stock_prices",
+    "financial_ratios",
+    "peer_groups",
+    "market_cap",
+]
 
 YEAR_TABLES = ["profitandloss", "balancesheet", "cashflow", "financial_ratios"]  # 'YYYY-MM' string year
 CALENDAR_YEAR_TABLES = ["market_cap"]  # plain int year
@@ -70,7 +89,9 @@ def dq03_fk_integrity():
         if "company_id" in df.columns:
             orphans = ~df["company_id"].isin(valid_ids)
             if orphans.sum() > 0:
-                log_failure("DQ-03", name, f"{orphans.sum()} rows with company_id not in companies", "CRITICAL")
+                log_failure(
+                    "DQ-03", name, f"{orphans.sum()} rows with company_id not in companies", "CRITICAL"
+                )
 
 
 def dq04_balance_sheet_balance():
@@ -79,23 +100,41 @@ def dq04_balance_sheet_balance():
     required = ["total_assets", "total_liabilities", "equity_capital", "reserves"]
     if all(c in df.columns for c in required):
         equity = df["equity_capital"] + df["reserves"]
-        diff_pct = (df["total_assets"] - (df["total_liabilities"] + equity)).abs() / df["total_assets"].replace(0, pd.NA)
+        diff_pct = (df["total_assets"] - (df["total_liabilities"] + equity)).abs() / df[
+            "total_assets"
+        ].replace(0, pd.NA)
         violations = diff_pct[diff_pct > 0.01].dropna()
         if len(violations) > 0:
-            log_failure("DQ-04", "balancesheet", f"{len(violations)} rows where Assets != Liabilities+Equity (>1%)", "WARNING")
+            log_failure(
+                "DQ-04",
+                "balancesheet",
+                f"{len(violations)} rows where Assets != Liabilities+Equity (>1%)",
+                "WARNING",
+            )
 
 
 def dq05_opm_cross_check():
     """DQ-05 WARNING: financial_ratios OPM vs P&L-derived OPM, >5pp diff."""
     ratios = load_table("financial_ratios")
     pnl = load_table("profitandloss")
-    if "operating_profit" in pnl.columns and "sales" in pnl.columns and "operating_profit_margin_pct" in ratios.columns:
+    if (
+        "operating_profit" in pnl.columns
+        and "sales" in pnl.columns
+        and "operating_profit_margin_pct" in ratios.columns
+    ):
         pnl_calc = pnl.copy()
         pnl_calc["calc_opm"] = (pnl_calc["operating_profit"] / pnl_calc["sales"].replace(0, pd.NA)) * 100
-        merged = ratios.merge(pnl_calc[["company_id", "year", "calc_opm"]], on=["company_id", "year"], how="inner")
+        merged = ratios.merge(
+            pnl_calc[["company_id", "year", "calc_opm"]], on=["company_id", "year"], how="inner"
+        )
         mismatch = (merged["operating_profit_margin_pct"] - merged["calc_opm"]).abs() > 5
         if mismatch.sum() > 0:
-            log_failure("DQ-05", "financial_ratios", f"{mismatch.sum()} rows where OPM differs from P&L by >5pp", "WARNING")
+            log_failure(
+                "DQ-05",
+                "financial_ratios",
+                f"{mismatch.sum()} rows where OPM differs from P&L by >5pp",
+                "WARNING",
+            )
 
 
 def dq06_positive_sales():
@@ -104,7 +143,9 @@ def dq06_positive_sales():
     if "sales" in df.columns:
         zero_or_neg = df["sales"] <= 0
         if zero_or_neg.sum() > 0:
-            log_failure("DQ-06", "profitandloss", f"{zero_or_neg.sum()} rows with zero/negative sales", "WARNING")
+            log_failure(
+                "DQ-06", "profitandloss", f"{zero_or_neg.sum()} rows with zero/negative sales", "WARNING"
+            )
 
 
 def dq07_net_cash_consistency():
@@ -116,7 +157,12 @@ def dq07_net_cash_consistency():
         diff = (df["net_cash_flow"] - calc).abs()
         violations = diff[diff > 1].dropna()
         if len(violations) > 0:
-            log_failure("DQ-07", "cashflow", f"{len(violations)} rows where net cash flow doesn't reconcile", "WARNING")
+            log_failure(
+                "DQ-07",
+                "cashflow",
+                f"{len(violations)} rows where net cash flow doesn't reconcile",
+                "WARNING",
+            )
 
 
 def dq08_tax_rate_range():
@@ -125,7 +171,12 @@ def dq08_tax_rate_range():
     if "tax_percentage" in df.columns:
         out_of_range = (df["tax_percentage"] < 0) | (df["tax_percentage"] > 50)
         if out_of_range.sum() > 0:
-            log_failure("DQ-08", "profitandloss", f"{out_of_range.sum()} rows with tax_percentage outside 0-50%", "WARNING")
+            log_failure(
+                "DQ-08",
+                "profitandloss",
+                f"{out_of_range.sum()} rows with tax_percentage outside 0-50%",
+                "WARNING",
+            )
 
 
 def dq09_dividend_payout_cap():
@@ -134,7 +185,9 @@ def dq09_dividend_payout_cap():
     if "dividend_payout_ratio_pct" in df.columns:
         over_100 = df["dividend_payout_ratio_pct"] > 100
         if over_100.sum() > 0:
-            log_failure("DQ-09", "financial_ratios", f"{over_100.sum()} rows with payout ratio >100%", "WARNING")
+            log_failure(
+                "DQ-09", "financial_ratios", f"{over_100.sum()} rows with payout ratio >100%", "WARNING"
+            )
 
 
 def dq10_url_format():
@@ -152,7 +205,12 @@ def dq11_eps_sign_check():
     if "eps" in pnl.columns and "net_profit" in pnl.columns:
         mismatch = (pnl["eps"] > 0) != (pnl["net_profit"] > 0)
         if mismatch.sum() > 0:
-            log_failure("DQ-11", "profitandloss", f"{mismatch.sum()} rows where EPS sign != net profit sign", "WARNING")
+            log_failure(
+                "DQ-11",
+                "profitandloss",
+                f"{mismatch.sum()} rows where EPS sign != net profit sign",
+                "WARNING",
+            )
 
 
 def dq12_liabilities_equity_nonneg():
@@ -162,7 +220,9 @@ def dq12_liabilities_equity_nonneg():
         total = df["equity_capital"] + df["reserves"] + df["total_liabilities"]
         negative = total < 0
         if negative.sum() > 0:
-            log_failure("DQ-12", "balancesheet", f"{negative.sum()} rows with negative equity+liabilities", "WARNING")
+            log_failure(
+                "DQ-12", "balancesheet", f"{negative.sum()} rows with negative equity+liabilities", "WARNING"
+            )
 
 
 def dq13_year_coverage():
@@ -172,7 +232,9 @@ def dq13_year_coverage():
     counts = df_valid.groupby("company_id")["year"].nunique()
     low_coverage = counts[counts < 5]
     if len(low_coverage) > 0:
-        log_failure("DQ-13", "profitandloss", f"{len(low_coverage)} companies with <5 years of data", "WARNING")
+        log_failure(
+            "DQ-13", "profitandloss", f"{len(low_coverage)} companies with <5 years of data", "WARNING"
+        )
 
 
 def dq14_null_critical_fields():
@@ -196,7 +258,9 @@ def dq15_stock_price_positive():
         if col in df.columns:
             invalid = df[col] <= 0
             if invalid.sum() > 0:
-                log_failure("DQ-15", "stock_prices", f"{invalid.sum()} rows with non-positive {col}", "CRITICAL")
+                log_failure(
+                    "DQ-15", "stock_prices", f"{invalid.sum()} rows with non-positive {col}", "CRITICAL"
+                )
 
 
 def dq16_duplicate_rows():
@@ -209,11 +273,24 @@ def dq16_duplicate_rows():
 
 
 def run_all_checks():
+    """Run all checks."""
     checks = [
-        dq01_pk_uniqueness, dq02_composite_pk, dq03_fk_integrity, dq04_balance_sheet_balance,
-        dq05_opm_cross_check, dq06_positive_sales, dq07_net_cash_consistency, dq08_tax_rate_range,
-        dq09_dividend_payout_cap, dq10_url_format, dq11_eps_sign_check, dq12_liabilities_equity_nonneg,
-        dq13_year_coverage, dq14_null_critical_fields, dq15_stock_price_positive, dq16_duplicate_rows,
+        dq01_pk_uniqueness,
+        dq02_composite_pk,
+        dq03_fk_integrity,
+        dq04_balance_sheet_balance,
+        dq05_opm_cross_check,
+        dq06_positive_sales,
+        dq07_net_cash_consistency,
+        dq08_tax_rate_range,
+        dq09_dividend_payout_cap,
+        dq10_url_format,
+        dq11_eps_sign_check,
+        dq12_liabilities_equity_nonneg,
+        dq13_year_coverage,
+        dq14_null_critical_fields,
+        dq15_stock_price_positive,
+        dq16_duplicate_rows,
     ]
     print("=" * 60)
     print("RUNNING 16 DATA QUALITY RULES (corrected column names)")

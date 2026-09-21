@@ -2,9 +2,9 @@
 Sprint 6, Day 42(backfill): market-cap and documents endpoint tests.
 
 These 2 endpoints were only covered by tests/api/test_api.py's
-"test_market_cap_history" and "test_documents" 
--- a file prev written for smoke-test the API as it was being built. 
-That file is being deleted as redundant with remaining tests/api (7 of its 9 tests duplicate those, with weaker assertions), 
+"test_market_cap_history" and "test_documents"
+-- a file prev written for smoke-test the API as it was being built.
+That file is being deleted as redundant with remaining tests/api (7 of its 9 tests duplicate those, with weaker assertions),
 but now these 2 tests covered ground nothing else did, so backfilling proper versions here first rather than just losing the coverage.
 """
 

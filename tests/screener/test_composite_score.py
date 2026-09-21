@@ -1,14 +1,20 @@
 """
 Day 17: Verification tests for winsorization and composite scoring.
 """
-import pandas as pd
+
 import sys
 from pathlib import Path
 
+import pandas as pd
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src" / "screener"))
 
-from composite_score import winsorize, scale_0_100, compute_composite_score #type:ignore
-from presets import load_universe #type:ignore
+from composite_score import (  # type: ignore
+    compute_composite_score,
+    scale_0_100,
+    winsorize,
+)
+from presets import load_universe  # type: ignore
 
 
 def test_winsorize_caps_extreme_high_value():
@@ -33,7 +39,7 @@ def test_scale_0_100_invert_flips_direction():
 
 def test_bel_extreme_roe_does_not_dominate_composite_score():
     """
-    Regression test: confirms the specific bug we found and fixed — a company with an absurd raw ROE (BEL, HAL-style artifact) 
+    Regression test: confirms the specific bug we found and fixed — a company with an absurd raw ROE (BEL, HAL-style artifact)
     should NOT produce a composite score that implausibly outranks genuinely strong companies, after winsorization is applied.
     """
     universe = load_universe()
@@ -49,7 +55,7 @@ def test_bel_extreme_roe_does_not_dominate_composite_score():
 
 def test_indigo_winsorized_roe_matches_90th_percentile():
     """
-    Confirms winsorize() genuinely caps at the true 90th percentile of the REAL dataset, 
+    Confirms winsorize() genuinely caps at the true 90th percentile of the REAL dataset,
     not an arbitrary fixed number -- this is what we verified manually and are now locking in as an automated regression check.
     """
     universe = load_universe()

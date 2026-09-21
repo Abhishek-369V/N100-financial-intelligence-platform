@@ -9,9 +9,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
 
 ALL_TABLES = [
-    "companies", "profitandloss", "balancesheet", "cashflow", "analysis",
-    "documents", "prosandcons", "sectors", "stock_prices", "market_cap",
-    "peer_groups", "financial_ratios", "peer_percentiles",
+    "companies",
+    "profitandloss",
+    "balancesheet",
+    "cashflow",
+    "analysis",
+    "documents",
+    "prosandcons",
+    "sectors",
+    "stock_prices",
+    "market_cap",
+    "peer_groups",
+    "financial_ratios",
+    "peer_percentiles",
 ]
 
 

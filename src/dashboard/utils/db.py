@@ -2,16 +2,17 @@
 Day 22 (SPRINT4): Shared data-loader module for the Streamlit dashboard.
                 -> Every query function is cached with @st.cache_data(ttl=600) per spec.
 
-NOTE: (flagging, not silently working around): 
--> get_valuation() reads output/valuation_summary.xlsx, which doesn't exist yet -- it's a Day 26 deliverable. 
--> Until then this returns an empty DataFrame with the expected columns rather than raising, 
-   so Days 22-25 screens that don't touch valuation aren't blocked. 
+NOTE: (flagging, not silently working around):
+-> get_valuation() reads output/valuation_summary.xlsx, which doesn't exist yet -- it's a Day 26 deliverable.
+-> Until then this returns an empty DataFrame with the expected columns rather than raising,
+   so Days 22-25 screens that don't touch valuation aren't blocked.
 -> Any screen that calls get_valuation() before Day 26 will just render "no data" -- not crash.
 """
 
+from pathlib import Path
+
 import pandas as pd
 import streamlit as st
-from pathlib import Path
 from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -35,7 +36,7 @@ def get_companies():
 @st.cache_data(ttl=600)
 def get_ratios(ticker=None, year=None):
     """
-    financial_ratios rows. ticker filters to one company; 
+    financial_ratios rows. ticker filters to one company;
     year filters to one fiscal year (both optional -- omitting both returns the full table,
     which callers use for universe-wide aggregates like the Home screen KPIs).
     """
@@ -55,7 +56,8 @@ def get_pl(ticker):
     """profitandloss history for one company, sorted by year."""
     return pd.read_sql(
         "SELECT * FROM profitandloss WHERE company_id = :ticker ORDER BY year",
-        db_engine, params={"ticker": ticker},
+        db_engine,
+        params={"ticker": ticker},
     )
 
 
@@ -64,7 +66,8 @@ def get_bs(ticker):
     """balancesheet history for one company, sorted by year."""
     return pd.read_sql(
         "SELECT * FROM balancesheet WHERE company_id = :ticker ORDER BY year",
-        db_engine, params={"ticker": ticker},
+        db_engine,
+        params={"ticker": ticker},
     )
 
 
@@ -73,7 +76,8 @@ def get_cf(ticker):
     """cashflow history for one company, sorted by year."""
     return pd.read_sql(
         "SELECT * FROM cashflow WHERE company_id = :ticker ORDER BY year",
-        db_engine, params={"ticker": ticker},
+        db_engine,
+        params={"ticker": ticker},
     )
 
 
@@ -92,7 +96,8 @@ def get_peers(group_name):
     """
     members = pd.read_sql(
         "SELECT company_id, is_benchmark FROM peer_groups WHERE peer_group_name = :g",
-        db_engine, params={"g": group_name},
+        db_engine,
+        params={"g": group_name},
     )
     if members.empty:
         return members
@@ -115,8 +120,16 @@ def get_valuation(ticker=None):
     rather than raising -- see module docstring.
     """
     expected_cols = [
-        "company_id", "company_name", "sector", "pe_ratio", "pb_ratio",
-        "ev_ebitda", "fcf_yield_pct", "pe_5yr_median", "pe_vs_sector_median_pct", "flag",
+        "company_id",
+        "company_name",
+        "sector",
+        "pe_ratio",
+        "pb_ratio",
+        "ev_ebitda",
+        "fcf_yield_pct",
+        "pe_5yr_median",
+        "pe_vs_sector_median_pct",
+        "flag",
     ]
     if not VALUATION_PATH.exists():
         return pd.DataFrame(columns=expected_cols)

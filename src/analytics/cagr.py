@@ -1,10 +1,9 @@
 """
-Day 10: CAGR engine — Revenue, PAT (net profit), and EPS growth over 3yr, 5yr, and 10yr windows. 
+Day 10: CAGR engine — Revenue, PAT (net profit), and EPS growth over 3yr, 5yr, and 10yr windows.
 Handles 6 sign-based edge cases per spec.
 """
 
 import pandas as pd
-
 
 # ---------- Core CAGR formula with edge-case dispatch ----------
 
@@ -106,9 +105,13 @@ def revenue_cagr(df, company_id, window_years):
 
 def pat_cagr(df, company_id, window_years):
     """PAT (net profit) CAGR for a given window. df must have a 'net_profit' column."""
-    return compute_cagr_for_window(df, company_id, metric_col="net_profit", year_col="year", window_years=window_years)
+    return compute_cagr_for_window(
+        df, company_id, metric_col="net_profit", year_col="year", window_years=window_years
+    )
 
 
 def eps_cagr(df, company_id, window_years):
     """EPS CAGR for a given window. df must have an 'eps' column."""
-    return compute_cagr_for_window(df, company_id, metric_col="eps", year_col="year", window_years=window_years)
+    return compute_cagr_for_window(
+        df, company_id, metric_col="eps", year_col="year", window_years=window_years
+    )

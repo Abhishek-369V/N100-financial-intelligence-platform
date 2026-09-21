@@ -1,6 +1,6 @@
 """
 Sprint 5, Day 35: Portfolio Summary PDF
-One page per company, alphabetical by ticker: 
+One page per company, alphabetical by ticker:
 company name, sector, top 6 KPIs, and a trend arrow per KPI vs the prior year.
 """
 
@@ -12,7 +12,14 @@ from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
-from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+from reportlab.platypus import (
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
+)
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
@@ -61,13 +68,16 @@ def compute_roce_proxy(bs_row, pnl_row):
         return None
     if pnl_row["operating_profit"] is None or pd.isna(pnl_row["operating_profit"]):
         return None
-    capital_employed = (bs_row["equity_capital"] or 0) + (bs_row["reserves"] or 0) + (bs_row["borrowings"] or 0)
+    capital_employed = (
+        (bs_row["equity_capital"] or 0) + (bs_row["reserves"] or 0) + (bs_row["borrowings"] or 0)
+    )
     if capital_employed <= 0:
         return None
     return round((pnl_row["operating_profit"] / capital_employed) * 100, 2)
 
 
 def load_portfolio_data():
+    """Load portfolio data."""
     con = sqlite3.connect(DB_PATH)
     companies = pd.read_sql("SELECT id AS company_id, company_name FROM companies ORDER BY id", con)
     sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", con)
@@ -95,30 +105,65 @@ def get_trend(latest_val, prior_val, higher_is_better):
 
 
 def build_company_page(company_id, company_name, sector, ratios_c, pnl_c, bs_c):
+    """Build company page for the given company_id, company_name, sector, ratios_c, pnl_c, bs_c."""
     latest_r = ratios_c.iloc[-1] if len(ratios_c) else None
     prior_r = ratios_c.iloc[-2] if len(ratios_c) >= 2 else None
 
-    latest_roce = compute_roce_proxy(
-        bs_c[bs_c["year"] == latest_r["year"]].iloc[0] if latest_r is not None and len(bs_c[bs_c["year"] == latest_r["year"]]) else None,
-        pnl_c[pnl_c["year"] == latest_r["year"]].iloc[0] if latest_r is not None and len(pnl_c[pnl_c["year"] == latest_r["year"]]) else None,
-    ) if latest_r is not None else None
-    prior_roce = compute_roce_proxy(
-        bs_c[bs_c["year"] == prior_r["year"]].iloc[0] if prior_r is not None and len(bs_c[bs_c["year"] == prior_r["year"]]) else None,
-        pnl_c[pnl_c["year"] == prior_r["year"]].iloc[0] if prior_r is not None and len(pnl_c[pnl_c["year"] == prior_r["year"]]) else None,
-    ) if prior_r is not None else None
+    latest_roce = (
+        compute_roce_proxy(
+            (
+                bs_c[bs_c["year"] == latest_r["year"]].iloc[0]
+                if latest_r is not None and len(bs_c[bs_c["year"] == latest_r["year"]])
+                else None
+            ),
+            (
+                pnl_c[pnl_c["year"] == latest_r["year"]].iloc[0]
+                if latest_r is not None and len(pnl_c[pnl_c["year"] == latest_r["year"]])
+                else None
+            ),
+        )
+        if latest_r is not None
+        else None
+    )
+    prior_roce = (
+        compute_roce_proxy(
+            (
+                bs_c[bs_c["year"] == prior_r["year"]].iloc[0]
+                if prior_r is not None and len(bs_c[bs_c["year"] == prior_r["year"]])
+                else None
+            ),
+            (
+                pnl_c[pnl_c["year"] == prior_r["year"]].iloc[0]
+                if prior_r is not None and len(pnl_c[pnl_c["year"] == prior_r["year"]])
+                else None
+            ),
+        )
+        if prior_r is not None
+        else None
+    )
 
     metric_values = {
-        "return_on_equity_pct": (latest_r["return_on_equity_pct"] if latest_r is not None else None,
-                                   prior_r["return_on_equity_pct"] if prior_r is not None else None),
+        "return_on_equity_pct": (
+            latest_r["return_on_equity_pct"] if latest_r is not None else None,
+            prior_r["return_on_equity_pct"] if prior_r is not None else None,
+        ),
         "roce_proxy": (latest_roce, prior_roce),
-        "debt_to_equity": (latest_r["debt_to_equity"] if latest_r is not None else None,
-                            prior_r["debt_to_equity"] if prior_r is not None else None),
-        "revenue_cagr_5yr": (latest_r["revenue_cagr_5yr"] if latest_r is not None else None,
-                              prior_r["revenue_cagr_5yr"] if prior_r is not None else None),
-        "pat_cagr_5yr": (latest_r["pat_cagr_5yr"] if latest_r is not None else None,
-                          prior_r["pat_cagr_5yr"] if prior_r is not None else None),
-        "operating_profit_margin_pct": (latest_r["operating_profit_margin_pct"] if latest_r is not None else None,
-                                          prior_r["operating_profit_margin_pct"] if prior_r is not None else None),
+        "debt_to_equity": (
+            latest_r["debt_to_equity"] if latest_r is not None else None,
+            prior_r["debt_to_equity"] if prior_r is not None else None,
+        ),
+        "revenue_cagr_5yr": (
+            latest_r["revenue_cagr_5yr"] if latest_r is not None else None,
+            prior_r["revenue_cagr_5yr"] if prior_r is not None else None,
+        ),
+        "pat_cagr_5yr": (
+            latest_r["pat_cagr_5yr"] if latest_r is not None else None,
+            prior_r["pat_cagr_5yr"] if prior_r is not None else None,
+        ),
+        "operating_profit_margin_pct": (
+            latest_r["operating_profit_margin_pct"] if latest_r is not None else None,
+            prior_r["operating_profit_margin_pct"] if prior_r is not None else None,
+        ),
     }
 
     cells = []
@@ -128,21 +173,27 @@ def build_company_page(company_id, company_name, sector, ratios_c, pnl_c, bs_c):
         arrow, style_key = get_trend(latest_val, prior_val, METRIC_DIRECTION[metric_key])
         cell = [
             Paragraph(label, styles["label"]),
-            Paragraph(f"{value_text} {arrow}", styles[style_key] if pd.notna(latest_val) else styles["arrow_flat"]),
+            Paragraph(
+                f"{value_text} {arrow}", styles[style_key] if pd.notna(latest_val) else styles["arrow_flat"]
+            ),
         ]
         cells.append(cell)
 
     rows = [cells[0:3], cells[3:6]]
     tile_width = (PAGE_W - 3 * cm) / 3
     table = Table(rows, colWidths=[tile_width] * 3, rowHeights=[2.3 * cm] * 2)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREY),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.white),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 10),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREY),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.white),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 12),
+                ("TOPPADDING", (0, 0), (-1, -1), 10),
+            ]
+        )
+    )
 
     year_note = ""
     if latest_r is not None and prior_r is not None:
@@ -156,6 +207,7 @@ def build_company_page(company_id, company_name, sector, ratios_c, pnl_c, bs_c):
 
 
 def navy_header(canvas_obj, doc, company_name, ticker, sector):
+    """Navy header for the given canvas_obj, doc, company_name, ticker, sector."""
     canvas_obj.saveState()
     canvas_obj.setFillColor(NAVY)
     canvas_obj.rect(0, PAGE_H - 2.4 * cm, PAGE_W, 2.4 * cm, fill=1, stroke=0)
@@ -168,12 +220,17 @@ def navy_header(canvas_obj, doc, company_name, ticker, sector):
 
 
 def build_portfolio_summary():
+    """Build portfolio summary."""
     companies, sectors, ratios, pnl, bs = load_portfolio_data()
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
 
     doc = SimpleDocTemplate(
-        str(OUT_PATH), pagesize=A4,
-        topMargin=2.8 * cm, bottomMargin=1.5 * cm, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        str(OUT_PATH),
+        pagesize=A4,
+        topMargin=2.8 * cm,
+        bottomMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
     )
 
     story = []
@@ -199,6 +256,7 @@ def build_portfolio_summary():
             story.append(PageBreak())
 
     def on_page(canvas_obj, doc_obj):
+        """On page for the given canvas_obj, doc_obj."""
         page_num = canvas_obj.getPageNumber() - 1  # 0-indexed
         if 0 <= page_num < len(page_headers):
             company_name, ticker, sector = page_headers[page_num]
@@ -214,7 +272,9 @@ if __name__ == "__main__":
     print(f"portfolio_summary.pdf: {company_count} pages, {size_kb:.1f} KB")
 
     import sys
+
     sys.path.insert(0, str(BASE_DIR / "src" / "reports"))
     from pypdf import PdfReader
+
     actual_pages = len(PdfReader(str(out_path)).pages)
     print(f"Actual PDF page count: {actual_pages} (expected {company_count})")

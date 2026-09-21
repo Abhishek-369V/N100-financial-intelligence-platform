@@ -1,5 +1,5 @@
 r"""
-Sprint 5, Day 29 
+Sprint 5, Day 29
 -- Analysis TextParser Parses free-text period/value fields in data/raw/analysis.xlsx into structured rows.
 """
 
@@ -59,6 +59,7 @@ def parse_cell(raw_text):
 
 
 def parse_analysis_file():
+    """Parse analysis file."""
     df = pd.read_csv(RAW_PATH)
 
     parsed_rows = []
@@ -71,19 +72,23 @@ def parse_analysis_file():
             period_years, value_pct, source_label, matched = parse_cell(raw_text)
 
             if matched:
-                parsed_rows.append({
-                    "company_id": company_id,
-                    "metric_type": metric,
-                    "period_years": period_years,
-                    "value_pct": value_pct,
-                    "source_label": source_label,
-                })
+                parsed_rows.append(
+                    {
+                        "company_id": company_id,
+                        "metric_type": metric,
+                        "period_years": period_years,
+                        "value_pct": value_pct,
+                        "source_label": source_label,
+                    }
+                )
             else:
-                failure_rows.append({
-                    "company_id": company_id,
-                    "metric_type": metric,
-                    "raw_text": raw_text,
-                })
+                failure_rows.append(
+                    {
+                        "company_id": company_id,
+                        "metric_type": metric,
+                        "raw_text": raw_text,
+                    }
+                )
 
     parsed_df = pd.DataFrame(parsed_rows)
     OUT_PARSED.parent.mkdir(parents=True, exist_ok=True)
@@ -110,9 +115,7 @@ def crossvalidate(parsed_df):
     ratios = pd.read_sql("SELECT * FROM financial_ratios", con)
     con.close()
 
-    ratios_latest = (
-        ratios.sort_values("year").groupby("company_id").last().reset_index()
-    )
+    ratios_latest = ratios.sort_values("year").groupby("company_id").last().reset_index()
 
     results = []
     five_yr = parsed_df[parsed_df["period_years"] == 5]
@@ -129,14 +132,16 @@ def crossvalidate(parsed_df):
         engine_value = match.iloc[0][engine_col]
         divergence = abs(prow["value_pct"] - engine_value)
 
-        results.append({
-            "company_id": prow["company_id"],
-            "metric_type": prow["metric_type"],
-            "parsed_5yr_value_pct": prow["value_pct"],
-            "ratio_engine_value_pct": round(engine_value, 2),
-            "divergence_pct_points": round(divergence, 2),
-            "flag_manual_review": divergence > 5,
-        })
+        results.append(
+            {
+                "company_id": prow["company_id"],
+                "metric_type": prow["metric_type"],
+                "parsed_5yr_value_pct": prow["value_pct"],
+                "ratio_engine_value_pct": round(engine_value, 2),
+                "divergence_pct_points": round(divergence, 2),
+                "flag_manual_review": divergence > 5,
+            }
+        )
 
     crossval_df = pd.DataFrame(results)
     crossval_df.to_csv(OUT_CROSSVAL, index=False)
@@ -146,7 +151,9 @@ def crossvalidate(parsed_df):
 if __name__ == "__main__":
     parsed_df, failures_df = parse_analysis_file()
     print(f"Parsed rows: {len(parsed_df)}")
-    print(f"Companies with any analysis data: {parsed_df['company_id'].nunique() if not parsed_df.empty else 0} / 92")
+    print(
+        f"Companies with any analysis data: {parsed_df['company_id'].nunique() if not parsed_df.empty else 0} / 92"
+    )
     print(f"Parse failures (genuinely malformed): {len(failures_df)}")
 
     crossval_df = crossvalidate(parsed_df)

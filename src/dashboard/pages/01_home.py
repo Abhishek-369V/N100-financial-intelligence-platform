@@ -1,17 +1,19 @@
 """Day 23 — Home screen: KPI tiles, sector donut, top-5 table, year selector."""
+
 import sys
 from pathlib import Path
-import streamlit as st
-import plotly.graph_objects as go
+
 import pandas as pd
+import plotly.graph_objects as go
+import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import get_ratios, get_companies, get_sectors, db_engine
+from utils.db import db_engine, get_companies, get_ratios, get_sectors
 
 # Reuse Sprint 3's own winsorize + composite-score engine — no new formula code, same logic already used/verified for the screener.
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "screener"))
-from composite_score import winsorize, compute_composite_score #type:ignore
-from engine import load_universe #type:ignore
+from composite_score import compute_composite_score, winsorize  # type: ignore
+from engine import load_universe  # type: ignore
 
 # Force wide mode configuration to ensure - No UI break - 6 metrics stay side-by-side
 st.set_page_config(layout="wide")
@@ -25,8 +27,8 @@ ratios_all = get_ratios()
 companies = get_companies()
 sectors = get_sectors()
 
-# financial_ratios.year is 'YYYY-MM' (fiscal year-end varies by company - documented Sprint 2 finding). 
-# Filter to the selected calendar year, then take the latest month-end available per company within that year 
+# financial_ratios.year is 'YYYY-MM' (fiscal year-end varies by company - documented Sprint 2 finding).
+# Filter to the selected calendar year, then take the latest month-end available per company within that year
 # so every company contributes at most one row.
 ratios_all["calendar_year"] = ratios_all["year"].str[:4].astype(int)
 ratios_year = (
@@ -47,7 +49,7 @@ else:
         )
 
     # Winsorized (P10/P90 capped) average ROE — display-only fix for known data-entry outliers (BEL/INDIGO-style).
-    # Underlying financial_ratios data is untouched; only this KPI's calculation clips the extremes before averaging. 
+    # Underlying financial_ratios data is untouched; only this KPI's calculation clips the extremes before averaging.
     avg_roe_raw = ratios_year["return_on_equity_pct"].mean()
     avg_roe_winsorized = winsorize(ratios_year["return_on_equity_pct"]).mean()
 
@@ -57,7 +59,8 @@ else:
 
     mc = pd.read_sql(
         "SELECT company_id, pe_ratio FROM market_cap WHERE year = :y",
-        db_engine, params={"y": f"{selected_year}-03"},
+        db_engine,
+        params={"y": f"{selected_year}-03"},
     )
     median_pe = mc["pe_ratio"].median() if not mc.empty else None
 
@@ -66,11 +69,15 @@ else:
     col2.metric("Median P/E", f"{median_pe:.1f}" if median_pe is not None else "N/A")
     col3.metric("Median D/E", f"{median_de:.2f}" if median_de is not None else "N/A")
     col4.metric("Total Companies", companies["company_id"].nunique())
-    col5.metric("Median Revenue CAGR 5yr", f"{median_rev_cagr:.1f}%" if median_rev_cagr is not None else "N/A")
+    col5.metric(
+        "Median Revenue CAGR 5yr", f"{median_rev_cagr:.1f}%" if median_rev_cagr is not None else "N/A"
+    )
     col6.metric("Debt-Free Companies", int(debt_free_count))
 
-    st.caption(f"Raw (non-winsorized) average ROE for {selected_year} was {avg_roe_raw:.1f}% "
-               f"— capped to {avg_roe_winsorized:.1f}% at the 10th/90th percentile.")
+    st.caption(
+        f"Raw (non-winsorized) average ROE for {selected_year} was {avg_roe_raw:.1f}% "
+        f"— capped to {avg_roe_winsorized:.1f}% at the 10th/90th percentile."
+    )
 
     st.divider()
     left, right = st.columns([1, 1])
@@ -79,10 +86,16 @@ else:
         st.subheader("Sector Breakdown")
         sector_counts = sectors["broad_sector"].value_counts().reset_index()
         sector_counts.columns = ["broad_sector", "count"]
-        fig = go.Figure(data=[go.Pie(
-            labels=sector_counts["broad_sector"], values=sector_counts["count"], hole=0.5,
-        )])
-        fig.update_layout(margin=dict(t=10, b=10, l=10, r=10), height=380)
+        fig = go.Figure(
+            data=[
+                go.Pie(
+                    labels=sector_counts["broad_sector"],
+                    values=sector_counts["count"],
+                    hole=0.5,
+                )
+            ]
+        )
+        fig.update_layout(margin={"t": 10, "b": 10, "l": 10, "r": 10}, height=380)
         st.plotly_chart(fig, width="stretch")
         st.caption(
             f"{sector_counts.shape[0]} sectors, {sector_counts['count'].sum()} companies. "
@@ -97,7 +110,8 @@ else:
         universe = load_universe()
         universe = universe.merge(
             pd.read_sql("SELECT id AS company_id, roce_percentage FROM companies", db_engine),
-            on="company_id", how="left",
+            on="company_id",
+            how="left",
         )
         scored = compute_composite_score(universe, sector_relative=False)
         top5 = (
@@ -106,16 +120,18 @@ else:
             .head(5)[["company_id", "company_name", "composite_quality_score"]]
         )
         st.dataframe(
-            top5, 
-            hide_index=True, 
+            top5,
+            hide_index=True,
             width="stretch",
             column_config={
                 "company_id": st.column_config.TextColumn("Company ID", width="stretch"),
                 "company_name": st.column_config.TextColumn("Company Name", width="stretch"),
-                "composite_quality_score": st.column_config.NumberColumn("Score", width="stretch", format="%.2f")
-            }
+                "composite_quality_score": st.column_config.NumberColumn(
+                    "Score", width="stretch", format="%.2f"
+                ),
+            },
         )
-        
+
         st.caption(
             "Composite score is always based on each company's latest available "
             "data — it can't be recomputed for an arbitrary past year with the "

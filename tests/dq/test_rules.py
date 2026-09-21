@@ -10,7 +10,7 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "src" / "etl"))
 
-import validator #type:ignore
+import validator  # type: ignore
 
 
 @pytest.fixture(autouse=True)
@@ -45,8 +45,8 @@ def test_dq02_composite_pk_flags_duplicate_company_year(monkeypatch):
     bad = pd.DataFrame({"company_id": ["TCS", "TCS"], "year": ["2024-03", "2024-03"]})
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq02_composite_pk()
-    # Loops over YEAR_TABLES + CALENDAR_YEAR_TABLES (5 tables) 
-    # -- every one returns the same `bad` frame here, so it fires once per table, 
+    # Loops over YEAR_TABLES + CALENDAR_YEAR_TABLES (5 tables)
+    # -- every one returns the same `bad` frame here, so it fires once per table,
     # not once total (same pattern as dq03/dq16 below).
     assert len(validator.failures) > 0
     assert all(f["rule_id"] == "DQ-02" and f["severity"] == "CRITICAL" for f in validator.failures)
@@ -61,18 +61,22 @@ def test_dq03_fk_integrity_flags_orphan_company_id(monkeypatch):
 
     monkeypatch.setattr(validator, "load_table", fake_load_table)
     validator.dq03_fk_integrity()
-    # dq03 loops over every table in ALL_TABLES (minus companies) 
-    # -- every non-companies table returns the same `orphaned` frame here, 
+    # dq03 loops over every table in ALL_TABLES (minus companies)
+    # -- every non-companies table returns the same `orphaned` frame here,
     # so it fires once per table, not once total. Assert on the first, and that every fired failure is correctly attributed.
     assert len(validator.failures) > 0
     assert all(f["rule_id"] == "DQ-03" and f["severity"] == "CRITICAL" for f in validator.failures)
 
 
 def test_dq04_balance_sheet_balance_flags_mismatch(monkeypatch):
-    bad = pd.DataFrame({
-        "total_assets": [1000], "total_liabilities": [500],
-        "equity_capital": [100], "reserves": [100],  # 500+100+100=700, way off from 1000
-    })
+    bad = pd.DataFrame(
+        {
+            "total_assets": [1000],
+            "total_liabilities": [500],
+            "equity_capital": [100],
+            "reserves": [100],  # 500+100+100=700, way off from 1000
+        }
+    )
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq04_balance_sheet_balance()
     failure = _last_failure()
@@ -81,12 +85,21 @@ def test_dq04_balance_sheet_balance_flags_mismatch(monkeypatch):
 
 
 def test_dq05_opm_cross_check_flags_large_divergence(monkeypatch):
-    ratios = pd.DataFrame({
-        "company_id": ["TCS"], "year": ["2024-03"], "operating_profit_margin_pct": [50.0],
-    })
-    pnl = pd.DataFrame({
-        "company_id": ["TCS"], "year": ["2024-03"], "operating_profit": [10], "sales": [100],  # calc_opm = 10%, diff = 40pp
-    })
+    ratios = pd.DataFrame(
+        {
+            "company_id": ["TCS"],
+            "year": ["2024-03"],
+            "operating_profit_margin_pct": [50.0],
+        }
+    )
+    pnl = pd.DataFrame(
+        {
+            "company_id": ["TCS"],
+            "year": ["2024-03"],
+            "operating_profit": [10],
+            "sales": [100],  # calc_opm = 10%, diff = 40pp
+        }
+    )
 
     def fake_load_table(name):
         return ratios if name == "financial_ratios" else pnl
@@ -109,10 +122,14 @@ def test_dq06_positive_sales_flags_zero_sales(monkeypatch):
 
 
 def test_dq07_net_cash_consistency_flags_reconciliation_gap(monkeypatch):
-    bad = pd.DataFrame({
-        "operating_activity": [100], "investing_activity": [-20],
-        "financing_activity": [-10], "net_cash_flow": [999],  # should be 70
-    })
+    bad = pd.DataFrame(
+        {
+            "operating_activity": [100],
+            "investing_activity": [-20],
+            "financing_activity": [-10],
+            "net_cash_flow": [999],  # should be 70
+        }
+    )
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq07_net_cash_consistency()
     failure = _last_failure()
@@ -148,7 +165,9 @@ def test_dq10_url_format_flags_non_http(monkeypatch):
 
 
 def test_dq11_eps_sign_check_flags_mismatch(monkeypatch):
-    bad = pd.DataFrame({"eps": [5.0, -2.0], "net_profit": [100, 50]})  # 2nd row: eps negative, profit positive
+    bad = pd.DataFrame(
+        {"eps": [5.0, -2.0], "net_profit": [100, 50]}
+    )  # 2nd row: eps negative, profit positive
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq11_eps_sign_check()
     failure = _last_failure()
@@ -166,10 +185,12 @@ def test_dq12_liabilities_equity_nonneg_flags_negative_total(monkeypatch):
 
 
 def test_dq13_year_coverage_flags_thin_history(monkeypatch):
-    bad = pd.DataFrame({
-        "company_id": ["TCS", "TCS", "SHORTCO"],
-        "year": ["2022-03", "2023-03", "2024-03"],
-    })
+    bad = pd.DataFrame(
+        {
+            "company_id": ["TCS", "TCS", "SHORTCO"],
+            "year": ["2022-03", "2023-03", "2024-03"],
+        }
+    )
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq13_year_coverage()
     failure = _last_failure()
@@ -192,10 +213,14 @@ def test_dq14_null_critical_fields_flags_parse_error_year(monkeypatch):
 
 
 def test_dq15_stock_price_positive_flags_non_positive(monkeypatch):
-    bad = pd.DataFrame({
-        "open_price": [100, -5], "high_price": [110, 10],
-        "low_price": [95, 5], "close_price": [105, 0],
-    })
+    bad = pd.DataFrame(
+        {
+            "open_price": [100, -5],
+            "high_price": [110, 10],
+            "low_price": [95, 5],
+            "close_price": [105, 0],
+        }
+    )
     monkeypatch.setattr(validator, "load_table", lambda name: bad)
     validator.dq15_stock_price_positive()
     assert any(f["rule_id"] == "DQ-15" and f["severity"] == "CRITICAL" for f in validator.failures)
@@ -212,6 +237,7 @@ def test_dq16_duplicate_rows_flags_full_duplicates(monkeypatch):
 
 
 # ---------- Negative controls: clean data should NOT fire ----------
+
 
 def test_dq01_clean_data_does_not_fire(monkeypatch):
     clean = pd.DataFrame({"id": [1, 2, 3]})

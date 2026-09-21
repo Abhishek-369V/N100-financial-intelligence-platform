@@ -1,11 +1,12 @@
 """
-Day 15: Generic filter engine — 
+Day 15: Generic filter engine —
 loads screener_config.yaml, applies any combination of threshold filters to the financial_ratios universe...
 """
 
+from pathlib import Path
+
 import pandas as pd
 import yaml
-from pathlib import Path
 from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -23,8 +24,8 @@ def load_config():
 
 def load_universe():
     """
-    Load the full screening universe: 
-    financial_ratios joined with sectors(needed for the Financials D/E skip rule) 
+    Load the full screening universe:
+    financial_ratios joined with sectors(needed for the Financials D/E skip rule)
     and market_cap/financial data (needed for P/E, P/B, dividend yield filters not present in financial_ratios).
     - Then it merges them all into one wide table...
     """
@@ -32,7 +33,7 @@ def load_universe():
     sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", db_engine)
     market_cap = pd.read_sql(
         "SELECT company_id, year, market_cap_crore, pe_ratio, pb_ratio, dividend_yield_pct FROM market_cap",
-        db_engine
+        db_engine,
     )
     pnl = pd.read_sql("SELECT company_id, year, sales, net_profit FROM profitandloss", db_engine)
     # BUGFIX (carried over from Sprint 4 retro, fixed here in Sprint 5):
@@ -41,22 +42,19 @@ def load_universe():
     # composite_score.py via presets.py, and Day 19's radar PNGs) was
     # silently defaulting ROCE to a flat 50 in scoring. companies.id is
     # the ticker PK -> aliased to company_id to match every other table here.
-    companies = pd.read_sql(
-        "SELECT id AS company_id, roce_percentage FROM companies", db_engine
-    )
+    companies = pd.read_sql("SELECT id AS company_id, roce_percentage FROM companies", db_engine)
 
     # Use each company's latest year only for screening (a snapshot view, not full history)
     ratios_latest = ratios.sort_values("year").groupby("company_id").last().reset_index()
-    market_cap_latest = market_cap.sort_values("year").groupby("company_id").last().reset_index()  
-    pnl_latest = pnl.sort_values("year").groupby("company_id").last().reset_index()                  
+    market_cap_latest = market_cap.sort_values("year").groupby("company_id").last().reset_index()
+    pnl_latest = pnl.sort_values("year").groupby("company_id").last().reset_index()
 
     df = ratios_latest.merge(sectors, on="company_id", how="left")
-    df = df.merge(market_cap_latest, on="company_id", how="left", suffixes=("", "_mc"))   # use _latest version
-    df = df.merge(pnl_latest, on="company_id", how="left", suffixes=("", "_pnl"))          # use _latest version
-    df = df.merge(companies, on="company_id", how="left")                                  # BUGFIX: roce_percentage
+    df = df.merge(market_cap_latest, on="company_id", how="left", suffixes=("", "_mc"))  # use _latest version
+    df = df.merge(pnl_latest, on="company_id", how="left", suffixes=("", "_pnl"))  # use _latest version
+    df = df.merge(companies, on="company_id", how="left")  # BUGFIX: roce_percentage
 
     return df
-
 
 
 def apply_icr_infinity_rule(df, icr_col="interest_coverage", icr_label_col="icr_label"):
@@ -128,7 +126,9 @@ def run_screener(filters_dict):
     composite_score.py -> presets.py -> this module, so a top-level
     import here would be circular.
     """
-    from composite_score import compute_composite_score  # local import: avoids circular import
+    from composite_score import (
+        compute_composite_score,  # local import: avoids circular import
+    )
 
     config = load_config()
     df = load_universe()

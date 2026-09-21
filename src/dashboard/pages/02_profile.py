@@ -1,13 +1,15 @@
 """Day 23 — Company Profile screen: search, card, KPI tiles, charts, pros/cons."""
+
 import sys
 from pathlib import Path
-import streamlit as st
+
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import get_companies, get_ratios, get_pl, db_engine
+from utils.db import db_engine, get_companies, get_pl, get_ratios
 
 st.set_page_config(layout="wide")
 
@@ -33,9 +35,8 @@ if ticker:
     c1.write(f"**Sector:** {row['broad_sector']}")
     c2.write(f"**Sub-sector:** {row['sub_sector']}")
     c3.write(f"**NSE Ticker:** {ticker}")
-    desc = row['about_company'] or "_No description available._"
+    desc = row["about_company"] or "_No description available._"
     st.write(f"**Description:** {desc}")
-
 
     st.divider()
 
@@ -47,11 +48,20 @@ if ticker:
         k1.metric("ROE", f"{latest['return_on_equity_pct']:.1f}%")
         # ROCE has no per-year history in financial_ratios — it's a single
         # static snapshot value in the companies table, not a time series.
-        k2.metric("ROCE (latest snapshot)", f"{row['roce_percentage']:.1f}%" if pd.notna(row["roce_percentage"]) else "N/A")
+        k2.metric(
+            "ROCE (latest snapshot)",
+            f"{row['roce_percentage']:.1f}%" if pd.notna(row["roce_percentage"]) else "N/A",
+        )
         k3.metric("Net Profit Margin", f"{latest['net_profit_margin_pct']:.1f}%")
         k4.metric("D/E", f"{latest['debt_to_equity']:.2f}")
-        k5.metric("Revenue CAGR 5yr", f"{latest['revenue_cagr_5yr']:.1f}%" if pd.notna(latest["revenue_cagr_5yr"]) else "N/A")
-        k6.metric("FCF (latest yr, Cr)", f"{latest['free_cash_flow_cr']:.0f}" if pd.notna(latest["free_cash_flow_cr"]) else "N/A")
+        k5.metric(
+            "Revenue CAGR 5yr",
+            f"{latest['revenue_cagr_5yr']:.1f}%" if pd.notna(latest["revenue_cagr_5yr"]) else "N/A",
+        )
+        k6.metric(
+            "FCF (latest yr, Cr)",
+            f"{latest['free_cash_flow_cr']:.0f}" if pd.notna(latest["free_cash_flow_cr"]) else "N/A",
+        )
     else:
         st.info("No financial_ratios data available for this company.")
 
@@ -62,18 +72,18 @@ if ticker:
         st.subheader("Revenue & Net Profit")
         fig = go.Figure()
         fig.add_bar(
-            x=pl["year"], 
-            y=pl["sales"], 
+            x=pl["year"],
+            y=pl["sales"],
             name="Revenue (₹ Cr)",
-            hovertemplate="₹%{y:,.0f} Cr<extra>Revenue</extra>"
+            hovertemplate="₹%{y:,.0f} Cr<extra>Revenue</extra>",
         )
         fig.add_bar(
-            x=pl["year"], 
-            y=pl["net_profit"], 
+            x=pl["year"],
+            y=pl["net_profit"],
             name="Net Profit (₹ Cr)",
-            hovertemplate="₹%{y:,.0f} Cr<extra>Net Profit</extra>"
+            hovertemplate="₹%{y:,.0f} Cr<extra>Net Profit</extra>",
         )
-        fig.update_layout(barmode="group", height=380, margin=dict(t=10, b=10))
+        fig.update_layout(barmode="group", height=380, margin={"t": 10, "b": 10})
         st.plotly_chart(fig, width="stretch")
         if len(pl) < 10:
             st.caption(f"Only {len(pl)} years of P&L data available for this company.")
@@ -86,20 +96,22 @@ if ticker:
         fig2 = make_subplots(specs=[[{"secondary_y": True}]])
         fig2.add_trace(
             go.Scatter(
-                x=roe_hist["year"], 
-                y=roe_hist["return_on_equity_pct"], 
-                name="ROE %", 
+                x=roe_hist["year"],
+                y=roe_hist["return_on_equity_pct"],
+                name="ROE %",
                 mode="lines+markers",
-                hovertemplate="ROE: %{y:.1f}%<extra></extra>"
+                hovertemplate="ROE: %{y:.1f}%<extra></extra>",
             ),
             secondary_y=False,
         )
         if pd.notna(row["roce_percentage"]):
             fig2.add_hline(
-                y=row["roce_percentage"], line_dash="dot",
-                annotation_text=f"ROCE (latest snapshot, static): {row['roce_percentage']:.1f}%", secondary_y=True,
+                y=row["roce_percentage"],
+                line_dash="dot",
+                annotation_text=f"ROCE (latest snapshot, static): {row['roce_percentage']:.1f}%",
+                secondary_y=True,
             )
-        fig2.update_layout(height=360, margin=dict(t=10, b=10))
+        fig2.update_layout(height=360, margin={"t": 10, "b": 10})
         st.plotly_chart(fig2, width="stretch")
         st.caption(
             "ROCE has no year-by-year history in the database (only a single "

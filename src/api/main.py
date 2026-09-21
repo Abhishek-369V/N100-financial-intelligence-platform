@@ -11,7 +11,14 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import (
-    companies, screener, sectors, peers, valuation, portfolio, documents, health,
+    companies,
+    documents,
+    health,
+    peers,
+    portfolio,
+    screener,
+    sectors,
+    valuation,
 )
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
@@ -35,6 +42,7 @@ app.add_middleware(
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
+    """Log requests for the given request, call_next."""
     start_time = time.time()
     response = await call_next(request)
     duration_ms = round((time.time() - start_time) * 1000, 2)

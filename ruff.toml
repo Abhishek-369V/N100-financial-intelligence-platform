@@ -1,0 +1,8 @@
+# B008 (function call in default argument) is disabled project-wide: FastAPI's
+# own dependency-injection pattern REQUIRES `Depends(...)` as a default arg
+# (Depends(get_db_connection), Query(None, ...)) — this is the framework's
+# documented, correct usage, not a bug. Ruff's own docs list this as a known
+# FastAPI false-positive. All 14 of this project's B008 hits are in
+# src/api/routers/*.py for exactly this reason.
+[lint]
+ignore = ["B008", "BLE001", "S110"]

@@ -4,9 +4,10 @@ Day 5: Loads all 12 processed CSVs into nifty100.db per schema.sql,
 generates load_audit.csv, runs PRAGMA foreign_key_check.
 """
 
+from pathlib import Path
+
 import pandas as pd
 from sqlalchemy import create_engine, text
-from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 PROCESSED_PATH = BASE_DIR / "data" / "processed"
@@ -35,6 +36,7 @@ TABLE_LOAD_ORDER = [
 
 
 def create_schema():
+    """Create schema."""
     print("=" * 60)
     print("CREATING 12-TABLE SCHEMA")
     print("=" * 60)
@@ -50,6 +52,7 @@ def create_schema():
 
 
 def load_all_tables():
+    """Load all tables."""
     print("=" * 60)
     print("LOADING ALL 12 TABLES — companies first (parent table)")
     print("=" * 60)
@@ -61,16 +64,25 @@ def load_all_tables():
 
         if not csv_path.exists():
             print(f"-----> SKIPPED — {csv_path.name} not found")
-            audit_rows.append({"table": table_name, "source_rows": 0, "loaded_rows": 0, "rejected": 0, "status": "FILE_MISSING"})
+            audit_rows.append(
+                {
+                    "table": table_name,
+                    "source_rows": 0,
+                    "loaded_rows": 0,
+                    "rejected": 0,
+                    "status": "FILE_MISSING",
+                }
+            )
             continue
 
         df = pd.read_csv(csv_path)
         source_count = len(df)
         rejected = 0
 
-
         if "company_id" in df.columns and csv_name != "companies":
-            valid_company_ids = set(pd.read_csv(PROCESSED_PATH / "companies.csv")["id"].astype(str).str.strip().str.upper())
+            valid_company_ids = set(
+                pd.read_csv(PROCESSED_PATH / "companies.csv")["id"].astype(str).str.strip().str.upper()
+            )
             df["company_id"] = df["company_id"].astype(str).str.strip().str.upper()
             orphan_mask = ~df["company_id"].isin(valid_company_ids)
             rejected += orphan_mask.sum()
@@ -91,12 +103,19 @@ def load_all_tables():
         loaded_count = pd.read_sql(f"SELECT COUNT(*) as cnt FROM {table_name}", engine).iloc[0]["cnt"]
 
         status = "OK" if loaded_count == (source_count - rejected) else "MISMATCH"
-        print(f"  [{status}] {table_name}: {source_count} source -> {loaded_count} loaded ({rejected} rejected)")
+        print(
+            f"  [{status}] {table_name}: {source_count} source -> {loaded_count} loaded ({rejected} rejected)"
+        )
 
-        audit_rows.append({
-            "table": table_name, "source_rows": source_count,
-            "loaded_rows": loaded_count, "rejected": rejected, "status": status,
-        })
+        audit_rows.append(
+            {
+                "table": table_name,
+                "source_rows": source_count,
+                "loaded_rows": loaded_count,
+                "rejected": rejected,
+                "status": status,
+            }
+        )
 
     df_audit = pd.DataFrame(audit_rows)
     df_audit.to_csv(OUTPUT_PATH / "load_audit.csv", index=False)
@@ -105,6 +124,7 @@ def load_all_tables():
 
 
 def run_fk_check():
+    """Run fk check."""
     print("\n" + "=" * 60)
     print("FOREIGN KEY CHECK")
     print("=" * 60)
@@ -122,11 +142,14 @@ def run_fk_check():
 
 
 def verify_exit_criteria():
+    """Verify exit criteria."""
     print("\n" + "=" * 60)
     print("EXIT CRITERIA CHECK")
     print("=" * 60)
     company_count = pd.read_sql("SELECT COUNT(*) as cnt FROM companies", engine).iloc[0]["cnt"]
-    print(f"  SELECT COUNT(*) FROM companies = {company_count}  (target: 92)  {'[DONE]' if company_count == 92 else '[ERROR]'}")
+    print(
+        f"  SELECT COUNT(*) FROM companies = {company_count}  (target: 92)  {'[DONE]' if company_count == 92 else '[ERROR]'}"
+    )
 
 
 if __name__ == "__main__":

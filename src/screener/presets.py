@@ -2,8 +2,9 @@
 Day 16: 6 preset screener strategies, built on top of Day 15's core Filter Engine.
 """
 
-import pandas as pd
 from pathlib import Path
+
+import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -12,8 +13,8 @@ from engine import load_universe
 OUTPUT_PATH = BASE_DIR / "output"
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 
-# Sanity bound for flagging (not filtering) extreme values, pending - for Day 17's formal winsorization. 
-# A ROE above 200% is implausible for organic operations and almost always signals a near-zero-denominator artifact 
+# Sanity bound for flagging (not filtering) extreme values, pending - for Day 17's formal winsorization.
+# A ROE above 200% is implausible for organic operations and almost always signals a near-zero-denominator artifact
 # (see BEL, Day 13 log).
 EXTREME_ROE_THRESHOLD = 200
 
@@ -84,12 +85,13 @@ def turnaround_watch():
     """
     Revenue CAGR 3yr > 10%, FCF positive in latest year, D/E declining YoY.
 
-    'D/E declining year-over-year' requires comparing TWO years per company(this year vs last year) 
-    -- something the other 5 presets don't need, 
+    'D/E declining year-over-year' requires comparing TWO years per company(this year vs last year)
+    -- something the other 5 presets don't need,
     since they only look at each company's single latest-year snapshot.
     This makes Turnaround Watch structurally different, handled separately below.
     """
     from sqlalchemy import create_engine
+
     db_engine = create_engine(f"sqlite:///{BASE_DIR / 'db' / 'nifty100.db'}")
 
     ratios = pd.read_sql("SELECT company_id, year, debt_to_equity FROM financial_ratios", db_engine)
@@ -109,11 +111,13 @@ def turnaround_watch():
     df = df[df["company_id"].isin(de_declining_companies)]
 
     # Revenue CAGR 3yr requires a dedicated 3-year window computation --
-    # flagging: current financial_ratios table only stores revenue_cagr_5yr (per Day 12's population), 
-    # not a separate 3yr column. 
-    # This preset's 3yr requirement cannot be fully applied until a revenue_cagr_3yr column is computed and added -- 
+    # flagging: current financial_ratios table only stores revenue_cagr_5yr (per Day 12's population),
+    # not a separate 3yr column.
+    # This preset's 3yr requirement cannot be fully applied until a revenue_cagr_3yr column is computed and added --
     # documenting as a known gap, not silently substituting the 5yr value in its place.
-    df["turnaround_watch_note"] = "PARTIAL: revenue_cagr_3yr not yet in financial_ratios; only D/E-declining + FCF>0 applied"
+    df["turnaround_watch_note"] = (
+        "PARTIAL: revenue_cagr_3yr not yet in financial_ratios; only D/E-declining + FCF>0 applied"
+    )
 
     df = df[df["free_cash_flow_cr"] > 0]
 
@@ -155,4 +159,8 @@ if __name__ == "__main__":
     print("\n" + "=" * 60)
     print("QUALITY COMPOUNDER — sample results")
     print("=" * 60)
-    print(results["Quality Compounder"][["company_id", "return_on_equity_pct", "debt_to_equity", "data_quality_flag"]].head(10))
+    print(
+        results["Quality Compounder"][
+            ["company_id", "return_on_equity_pct", "debt_to_equity", "data_quality_flag"]
+        ].head(10)
+    )

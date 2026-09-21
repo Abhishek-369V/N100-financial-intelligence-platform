@@ -1,22 +1,23 @@
 """
 Day 20 (SPRINT3): 11 sheets (one per peer group). Per sheet:
 
-ASSUMPTION (flagging explicitly, not guessing silently): 
-the spec's "20 metrics" is read as 10 raw metric values + their 10 percentile-rank counterparts, 
-since peer.py (Day 18) only computes percentile ranks for 10 metrics total (PEER_METRICS in peer.py) 
+ASSUMPTION (flagging explicitly, not guessing silently):
+the spec's "20 metrics" is read as 10 raw metric values + their 10 percentile-rank counterparts,
+since peer.py (Day 18) only computes percentile ranks for 10 metrics total (PEER_METRICS in peer.py)
 -- there is no 20-metric raw set anywhere upstream to draw from.
 
-Color coding is applied to the percentile-rank columns only 
-(raw value columns are informational, not thresholded 
+Color coding is applied to the percentile-rank columns only
+(raw value columns are informational, not thresholded
 -- there's no single pass/fail line for a raw ROE% the way there is for a percentile rank).
 """
 
-import pandas as pd
 from pathlib import Path
-from sqlalchemy import create_engine
+
+import pandas as pd
 from openpyxl import Workbook
-from openpyxl.styles import PatternFill, Font
+from openpyxl.styles import Font, PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
+from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
@@ -54,21 +55,17 @@ def load_data():
       - peer_percentiles: precomputed percentile ranks (from Day 18's peer.py)
       - companies/sectors: display columns (name, sector)
     Also re-derives the latest-year raw metric values the same way peer.py does (financial_ratios, latest year per company),
-    since peer_percentiles stores percentile_rank + value already melted long-form per metric 
-    -- reusing that directly is simpler and guarantees 
+    since peer_percentiles stores percentile_rank + value already melted long-form per metric
+    -- reusing that directly is simpler and guarantees
     raw value / percentile consistency (same source row) rather than re-joining financial_ratios.
     """
-    peer_groups = pd.read_sql(
-        "SELECT peer_group_name, company_id, is_benchmark FROM peer_groups", db_engine
-    )
+    peer_groups = pd.read_sql("SELECT peer_group_name, company_id, is_benchmark FROM peer_groups", db_engine)
     percentiles = pd.read_sql("SELECT * FROM peer_percentiles", db_engine)
     companies = pd.read_sql("SELECT id AS company_id, company_name FROM companies", db_engine)
     sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", db_engine)
 
     if percentiles.empty:
-        raise RuntimeError(
-            "peer_percentiles table is empty -- run src/analytics/peer.py (Day 18) first."
-        )
+        raise RuntimeError("peer_percentiles table is empty -- run src/analytics/peer.py (Day 18) first.")
 
     return peer_groups, percentiles, companies, sectors
 
@@ -84,9 +81,7 @@ def build_group_table(group_name, peer_groups, percentiles, companies, sectors):
     if group_pct.empty:
         return None  # groups_with_no_data case from peer.py (single-member groups)
 
-    value_wide = group_pct.pivot_table(
-        index="company_id", columns="metric", values="value", aggfunc="first"
-    )
+    value_wide = group_pct.pivot_table(index="company_id", columns="metric", values="value", aggfunc="first")
     pct_wide = group_pct.pivot_table(
         index="company_id", columns="metric", values="percentile_rank", aggfunc="first"
     )
@@ -120,7 +115,7 @@ def build_group_table(group_name, peer_groups, percentiles, companies, sectors):
 
 def build_summary_row(table):
     """Peer-group medians row, appended below the member rows."""
-    pct_and_value_cols = [c for c in table.columns if c.endswith("_value") or c.endswith("_pct")]
+    pct_and_value_cols = [c for c in table.columns if c.endswith(("_value", "_pct"))]
     summary = {c: table[c].median(skipna=True) for c in pct_and_value_cols}
     summary["company_id"] = ""
     summary["company_name"] = "GROUP MEDIAN"
@@ -130,6 +125,7 @@ def build_summary_row(table):
 
 
 def percentile_fill(pct_value):
+    """Percentile fill for the given pct_value."""
     if pd.isna(pct_value):
         return None
     if pct_value >= 0.75:
@@ -140,6 +136,7 @@ def percentile_fill(pct_value):
 
 
 def write_group_sheet(wb, group_name, table):
+    """Write group sheet for the given wb, group_name, table."""
     ws = wb.create_sheet(title=group_name[:31])
 
     summary_row = build_summary_row(table)
@@ -181,6 +178,7 @@ def write_group_sheet(wb, group_name, table):
 
 
 def generate_peer_comparison():
+    """Generate peer comparison."""
     peer_groups, percentiles, companies, sectors = load_data()
 
     all_group_names = sorted(peer_groups["peer_group_name"].unique())
@@ -208,8 +206,10 @@ def generate_peer_comparison():
     print("\n" + "=" * 60)
     print("SELF-VERIFICATION")
     print("=" * 60)
-    print(f"Sheets written: {written_sheets} (expected 11 per spec, "
-          f"{len(skipped_groups)} skipped for insufficient members: {skipped_groups})")
+    print(
+        f"Sheets written: {written_sheets} (expected 11 per spec, "
+        f"{len(skipped_groups)} skipped for insufficient members: {skipped_groups})"
+    )
     print(f"Saved: {output_file}")
 
     return written_sheets, skipped_groups

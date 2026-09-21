@@ -11,12 +11,13 @@ router = APIRouter()
 
 @router.get("/companies/{ticker}/documents")
 def get_company_documents(ticker: str, conn=Depends(get_db_connection)):
+    """Get company documents for the given ticker, conn."""
     if conn.execute("SELECT 1 FROM companies WHERE id = ?", (ticker,)).fetchone() is None:
         raise HTTPException(status_code=404, detail=f"Company '{ticker}' not found")
 
     rows = conn.execute(
         'SELECT "Year" AS year, "Annual_Report" AS annual_report FROM documents WHERE company_id = ? ORDER BY "Year" DESC',
-        (ticker,)
+        (ticker,),
     ).fetchall()
 
     documents = []

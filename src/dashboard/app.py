@@ -15,11 +15,9 @@ st.set_page_config(
 )
 
 st.title("Nifty 100 Analytics")
-st.markdown(
-    """
+st.markdown("""
     Welcome to the **N100 Financial Intelligence Platform**.
-    """
-)
+    """)
 
 # replace this with once content is build on day 23-25...
 st.info(

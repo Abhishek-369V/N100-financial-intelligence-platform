@@ -2,9 +2,10 @@
 Day 2: Loads all 12 raw Excel files, normalizes year/ticker.
 """
 
-import pandas as pd
 import re
 from pathlib import Path
+
+import pandas as pd
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent  # src/etl/ -> project root
 RAW_PATH = BASE_DIR / "data" / "raw"
@@ -31,11 +32,29 @@ SUPPORTING_FILES = {
 }
 
 MONTH_MAP = {
-    "jan": "01", "feb": "02", "mar": "03", "apr": "04", "may": "05", "jun": "06",
-    "jul": "07", "aug": "08", "sep": "09", "oct": "10", "nov": "11", "dec": "12",
-    "january": "01", "february": "02", "march": "03", "april": "04", "june": "06",
-    "july": "07", "august": "08", "september": "09", "october": "10",
-    "november": "11", "december": "12",
+    "jan": "01",
+    "feb": "02",
+    "mar": "03",
+    "apr": "04",
+    "may": "05",
+    "jun": "06",
+    "jul": "07",
+    "aug": "08",
+    "sep": "09",
+    "oct": "10",
+    "nov": "11",
+    "dec": "12",
+    "january": "01",
+    "february": "02",
+    "march": "03",
+    "april": "04",
+    "june": "06",
+    "july": "07",
+    "august": "08",
+    "september": "09",
+    "october": "10",
+    "november": "11",
+    "december": "12",
 }
 
 
@@ -108,6 +127,7 @@ def load_supporting_file(filename):
 
 
 def load_all_raw():
+    """Load all raw."""
     print("=" * 60)
     print("LOADING RAW FILES")
     print("=" * 60)
@@ -125,6 +145,7 @@ def load_all_raw():
 
 
 def apply_normalization(dataframes):
+    """Apply normalization for the given dataframes."""
     print("=" * 60)
     print("NORMALIZING (year -> YYYY-MM, ticker -> upper/stripped)")
     print("=" * 60)
@@ -134,11 +155,9 @@ def apply_normalization(dataframes):
     # Ticker normalization on company_id / id columns
     for name, df in dataframes.items():
         for col in df.columns:
-            if str(col).strip().lower() in ("company_id", "id") and df[col].dtype == object:
-                if name == "companies" and str(col).strip().lower() == "id":
-                    df[col] = df[col].apply(normalize_ticker)
-                elif str(col).strip().lower() == "company_id":
-                    df[col] = df[col].apply(normalize_ticker)
+            col_clean = str(col).strip().lower()
+            if df[col].dtype == object and (col_clean == "company_id" or (name == "companies" and col_clean == "id")):
+                df[col] = df[col].apply(normalize_ticker)
 
     # Year normalization -> YYYY-MM, log PARSE_ERROR rows
     for name, df in dataframes.items():
@@ -149,10 +168,9 @@ def apply_normalization(dataframes):
                 df[col] = df[col].apply(normalize_year)
                 errors = df[df[col] == "PARSE_ERROR"]
                 for idx in errors.index:
-                    parse_failures.append({
-                        "table": name, "row_index": idx,
-                        "raw_value": original.loc[idx], "column": col
-                    })
+                    parse_failures.append(
+                        {"table": name, "row_index": idx, "raw_value": original.loc[idx], "column": col}
+                    )
                 print(f"  normalized year in: {name}.{col} ({len(errors)} parse errors)")
 
     if parse_failures:
@@ -164,6 +182,7 @@ def apply_normalization(dataframes):
 
 
 def save_processed(dataframes):
+    """Save processed for the given dataframes."""
     for name, df in dataframes.items():
         out_path = PROCESSED_PATH / f"{name}.csv"
         df.to_csv(out_path, index=False)

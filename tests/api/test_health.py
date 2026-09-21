@@ -29,7 +29,9 @@ def test_health_db_row_counts_has_all_tables(client):
 
 def test_health_row_counts_are_positive():
     from fastapi.testclient import TestClient
+
     from src.api.main import app
+
     client = TestClient(app)
     data = client.get("/api/v1/health").json()
     for table, count in data["db_row_counts"].items():

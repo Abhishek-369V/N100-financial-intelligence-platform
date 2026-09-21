@@ -1,20 +1,21 @@
 """
-Day 17 (part 2): Generates output/screener_output.xlsx 
+Day 17 (part 2): Generates output/screener_output.xlsx
                 — 6 sheets, one per preset, colour-coded cells (green=passes threshold, red=fails).
 """
 
-import pandas as pd
+import sys
 from pathlib import Path
+
+import pandas as pd
 from openpyxl import Workbook
 from openpyxl.styles import PatternFill
 from openpyxl.utils.dataframe import dataframe_to_rows
-import sys
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "screener"))
 
-from presets import PRESETS
 from composite_score import compute_composite_score
+from presets import PRESETS
 
 OUTPUT_PATH = BASE_DIR / "output"
 OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
@@ -22,8 +23,8 @@ OUTPUT_PATH.mkdir(parents=True, exist_ok=True)
 GREEN_FILL = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
 RED_FILL = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
-# Threshold definitions per preset, needed here again for cell-level pass/fail coloring 
-# (presets.py filters the RESULTS, but doesn't retain which specific threshold each column needs to be checked 
+# Threshold definitions per preset, needed here again for cell-level pass/fail coloring
+# (presets.py filters the RESULTS, but doesn't retain which specific threshold each column needs to be checked
 # against for per-cell coloring -- redefining the check logic explicitly here).
 PRESET_THRESHOLDS = {
     "Quality Compounder": {
@@ -61,14 +62,29 @@ PRESET_THRESHOLDS = {
 }
 
 DISPLAY_COLUMNS = [
-    "company_id", "composite_quality_score", "return_on_equity_pct", "debt_to_equity",
-    "free_cash_flow_cr", "revenue_cagr_5yr", "pat_cagr_5yr", "pe_ratio", "pb_ratio",
-    "dividend_yield_pct", "interest_coverage", "asset_turnover", "sales", "net_profit",
-    "operating_profit_margin_pct", "eps", "broad_sector", "data_quality_flag",
+    "company_id",
+    "composite_quality_score",
+    "return_on_equity_pct",
+    "debt_to_equity",
+    "free_cash_flow_cr",
+    "revenue_cagr_5yr",
+    "pat_cagr_5yr",
+    "pe_ratio",
+    "pb_ratio",
+    "dividend_yield_pct",
+    "interest_coverage",
+    "asset_turnover",
+    "sales",
+    "net_profit",
+    "operating_profit_margin_pct",
+    "eps",
+    "broad_sector",
+    "data_quality_flag",
 ]
 
 
 def passes_threshold(value, direction, threshold):
+    """Passes threshold for the given value, direction, threshold."""
     if pd.isna(value):
         return None  # can't evaluate -- leave uncolored
     if direction == "min":
@@ -78,6 +94,7 @@ def passes_threshold(value, direction, threshold):
 
 
 def write_preset_sheet(wb, sheet_name, df, thresholds):
+    """Write preset sheet for the given wb, sheet_name, df, thresholds."""
     ws = wb.create_sheet(title=sheet_name[:31])  # Excel sheet name limit is 31 chars
 
     display_cols = [c for c in DISPLAY_COLUMNS if c in df.columns]
@@ -107,6 +124,7 @@ def write_preset_sheet(wb, sheet_name, df, thresholds):
 
 
 def generate_screener_output():
+    """Generate screener output."""
     wb = Workbook()
     wb.remove(wb.active)  # remove default empty sheet
 

@@ -2,8 +2,8 @@
 Day 11: Free Cash Flow, CFO Quality Score, CapEx Intensity, FCF Conversion Rate,
         and the 8-pattern capital allocation classifier.
 
-What this measures: 
-- Day 8-10 answered: "is the company profitable and growing?" 
+What this measures:
+- Day 8-10 answered: "is the company profitable and growing?"
 - Day 11 answers a different question: "is the reported profit actually turning into real cash, or just accounting paper?"
 
 """
@@ -215,14 +215,21 @@ def generate_cashflow_intelligence_output(cashflow_df, pnl_df, bs_df, sectors_df
             # of these features. Emit a row of Nones rather than skipping the
             # company outright, so it still appears in the 92-row output file
             # (Sprint 6 Gate AC-15-style expectation of full coverage).
-            rows.append({
-                "company_id": company_id, "sector": sector,
-                "cfo_quality_score": None, "cfo_quality_label": None,
-                "capex_intensity_pct": None, "capex_label": None,
-                "fcf_cagr_5yr": None, "fcf_conversion_pct": None,
-                "distress_flag": None, "deleveraging_flag": None,
-                "capital_allocation_label": None,
-            })
+            rows.append(
+                {
+                    "company_id": company_id,
+                    "sector": sector,
+                    "cfo_quality_score": None,
+                    "cfo_quality_label": None,
+                    "capex_intensity_pct": None,
+                    "capex_label": None,
+                    "fcf_cagr_5yr": None,
+                    "fcf_conversion_pct": None,
+                    "distress_flag": None,
+                    "deleveraging_flag": None,
+                    "capital_allocation_label": None,
+                }
+            )
             continue
 
         cf_5yr = cf.tail(5)
@@ -258,7 +265,9 @@ def generate_cashflow_intelligence_output(cashflow_df, pnl_df, bs_df, sectors_df
                 borrowings_current = latest_bs.iloc[0]["borrowings"]
             if len(prior_year_rows):
                 borrowings_prior = prior_year_rows.iloc[-1]["borrowings"]
-        deleveraging = detect_deleveraging(latest_cf["financing_activity"], borrowings_current, borrowings_prior)
+        deleveraging = detect_deleveraging(
+            latest_cf["financing_activity"], borrowings_current, borrowings_prior
+        )
 
         cfo_pat_ratio = None
         if latest_p_match.iloc[0]["net_profit"] if len(latest_p_match) else 0:
@@ -266,18 +275,27 @@ def generate_cashflow_intelligence_output(cashflow_df, pnl_df, bs_df, sectors_df
             if net_profit != 0:
                 cfo_pat_ratio = latest_cf["operating_activity"] / net_profit
         pattern_label = classify_capital_allocation(
-            latest_cf["operating_activity"], latest_cf["investing_activity"],
-            latest_cf["financing_activity"], cfo_pat_ratio=cfo_pat_ratio,
+            latest_cf["operating_activity"],
+            latest_cf["investing_activity"],
+            latest_cf["financing_activity"],
+            cfo_pat_ratio=cfo_pat_ratio,
         )
 
-        rows.append({
-            "company_id": company_id, "sector": sector,
-            "cfo_quality_score": quality_score, "cfo_quality_label": quality_label,
-            "capex_intensity_pct": capex_pct, "capex_label": capex_label,
-            "fcf_cagr_5yr": cagr, "fcf_conversion_pct": conversion,
-            "distress_flag": distress, "deleveraging_flag": deleveraging,
-            "capital_allocation_label": pattern_label,
-        })
+        rows.append(
+            {
+                "company_id": company_id,
+                "sector": sector,
+                "cfo_quality_score": quality_score,
+                "cfo_quality_label": quality_label,
+                "capex_intensity_pct": capex_pct,
+                "capex_label": capex_label,
+                "fcf_cagr_5yr": cagr,
+                "fcf_conversion_pct": conversion,
+                "distress_flag": distress,
+                "deleveraging_flag": deleveraging,
+                "capital_allocation_label": pattern_label,
+            }
+        )
 
     return pd.DataFrame(rows)
 
@@ -309,14 +327,16 @@ def generate_distress_alerts(cashflow_intelligence_df, cashflow_df, pnl_df):
         latest_cf = cf.iloc[-1]
         latest_p_match = p[p["year"] == latest_cf["year"]]
         net_profit = latest_p_match.iloc[0]["net_profit"] if len(latest_p_match) else None
-        rows.append({
-            "company_id": company_id,
-            "sector": row["sector"],
-            "cfo_value": latest_cf["operating_activity"],
-            "cff_value": latest_cf["financing_activity"],
-            "latest_net_profit": net_profit,
-            "likely_financial_sector_pattern": row["sector"] == "Financials",
-        })
+        rows.append(
+            {
+                "company_id": company_id,
+                "sector": row["sector"],
+                "cfo_value": latest_cf["operating_activity"],
+                "cff_value": latest_cf["financing_activity"],
+                "latest_net_profit": net_profit,
+                "likely_financial_sector_pattern": row["sector"] == "Financials",
+            }
+        )
     return pd.DataFrame(rows)
 
 
@@ -349,14 +369,16 @@ def generate_capital_allocation_output(df):
             cff=row["financing_activity"],
             cfo_pat_ratio=cfo_pat_ratio,
         )
-        results.append({
-            "company_id": row["company_id"],
-            "year": row["year"],
-            "cfo_sign": "+" if row["operating_activity"] > 0 else "-",
-            "cfi_sign": "+" if row["investing_activity"] > 0 else "-",
-            "cff_sign": "+" if row["financing_activity"] > 0 else "-",
-            "pattern_label": label,
-        })
+        results.append(
+            {
+                "company_id": row["company_id"],
+                "year": row["year"],
+                "cfo_sign": "+" if row["operating_activity"] > 0 else "-",
+                "cfi_sign": "+" if row["investing_activity"] > 0 else "-",
+                "cff_sign": "+" if row["financing_activity"] > 0 else "-",
+                "pattern_label": label,
+            }
+        )
     return pd.DataFrame(results)
 
 

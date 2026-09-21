@@ -1,15 +1,17 @@
 """Day 25 — Capital Allocation Map: treemap of 92 companies by CFO/CFI/CFF pattern."""
+
 import sys
 from pathlib import Path
-import streamlit as st
+
 import pandas as pd
 import plotly.express as px
+import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.db import db_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "analytics"))
-from cashflow_kpis import classify_capital_allocation #type:ignore
+from cashflow_kpis import classify_capital_allocation  # type: ignore
 
 st.set_page_config(layout="wide")
 
@@ -27,18 +29,24 @@ sectors = pd.read_sql("SELECT company_id, broad_sector FROM sectors", db_engine)
 merged = cf_latest.merge(pnl, on=["company_id", "year"], how="left")
 merged["cfo_pat_ratio"] = merged["operating_activity"] / merged["net_profit"]
 
-# cashflow_kpis.py's own generate_capital_allocation_output() never actually passes cfo_pat_ratio into classify_capital_allocation() 
+
+# cashflow_kpis.py's own generate_capital_allocation_output() never actually passes cfo_pat_ratio into classify_capital_allocation()
 # -- so "Shareholder  Returns" (a documented 8th pattern) can never be produced by that function
-# as written; it always falls back to "Reinvestor". 
+# as written; it always falls back to "Reinvestor".
 # Computing CFO/PAT here and passing it through, matching the function's own documented intent,
-# rather than reproducing that gap. 
+# rather than reproducing that gap.
 # Flagging/documenting gap in cashflow_kpis.py itself.
 def classify(row):
+    """Classify for the given row."""
     ratio = row["cfo_pat_ratio"] if pd.notna(row["cfo_pat_ratio"]) else None
     return classify_capital_allocation(
-        row["operating_activity"], row["investing_activity"], row["financing_activity"],
+        row["operating_activity"],
+        row["investing_activity"],
+        row["financing_activity"],
         cfo_pat_ratio=ratio,
     )
+
+
 merged["pattern_label"] = merged.apply(classify, axis=1)
 
 merged = merged.merge(companies, on="company_id", how="left").merge(sectors, on="company_id", how="left")
@@ -47,12 +55,12 @@ if len(merged) < 92:
     st.caption(f"{len(merged)} of 92 companies have a latest-year cashflow row to classify.")
 
 fig = px.treemap(
-    merged, 
-    path=["pattern_label", "company_id"], 
+    merged,
+    path=["pattern_label", "company_id"],
     values=[1] * len(merged),
     color="pattern_label",
 )
-fig.update_layout(height=550, margin=dict(t=20, b=20))
+fig.update_layout(height=550, margin={"t": 20, "b": 20})
 
 event = st.plotly_chart(fig, width="stretch", on_select="rerun", selection_mode="points")
 

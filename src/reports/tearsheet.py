@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 import matplotlib
+
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import pandas as pd
@@ -15,7 +16,13 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import cm
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, Image, PageBreak,
+    Image,
+    PageBreak,
+    Paragraph,
+    SimpleDocTemplate,
+    Spacer,
+    Table,
+    TableStyle,
 )
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
@@ -33,11 +40,17 @@ PAGE_W, PAGE_H = A4
 
 styles = {
     "tile_label": ParagraphStyle("tile_label", fontSize=8, textColor=colors.grey, leading=10),
-    "tile_value": ParagraphStyle("tile_value", fontSize=14, textColor=NAVY, leading=16, fontName="Helvetica-Bold"),
+    "tile_value": ParagraphStyle(
+        "tile_value", fontSize=14, textColor=NAVY, leading=16, fontName="Helvetica-Bold"
+    ),
     "pro": ParagraphStyle("pro", fontSize=8.5, textColor=colors.HexColor("#14532D"), leading=11),
     "con": ParagraphStyle("con", fontSize=8.5, textColor=colors.HexColor("#7F1D1D"), leading=11),
-    "section_header": ParagraphStyle("section_header", fontSize=11, textColor=NAVY, fontName="Helvetica-Bold", spaceAfter=6),
-    "badge_text": ParagraphStyle("badge_text", fontSize=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=1),
+    "section_header": ParagraphStyle(
+        "section_header", fontSize=11, textColor=NAVY, fontName="Helvetica-Bold", spaceAfter=6
+    ),
+    "badge_text": ParagraphStyle(
+        "badge_text", fontSize=11, textColor=colors.white, fontName="Helvetica-Bold", alignment=1
+    ),
 }
 
 
@@ -55,9 +68,7 @@ def load_company_data(ticker):
         "bs": pd.read_sql(
             "SELECT * FROM balancesheet WHERE company_id = ? ORDER BY year", con, params=(ticker,)
         ),
-        "cf": pd.read_sql(
-            "SELECT * FROM cashflow WHERE company_id = ? ORDER BY year", con, params=(ticker,)
-        ),
+        "cf": pd.read_sql("SELECT * FROM cashflow WHERE company_id = ? ORDER BY year", con, params=(ticker,)),
         "sector": pd.read_sql(
             "SELECT broad_sector, sub_sector FROM sectors WHERE company_id = ?", con, params=(ticker,)
         ),
@@ -76,7 +87,9 @@ def load_company_data(ticker):
         ci = pd.read_excel(ci_path)
         match = ci[ci["company_id"] == ticker]
         raw_label = match.iloc[0]["capital_allocation_label"] if len(match) else None
-        data["capital_allocation_label"] = raw_label if pd.notna(raw_label) else "Unavailable (no cash flow data)"
+        data["capital_allocation_label"] = (
+            raw_label if pd.notna(raw_label) else "Unavailable (no cash flow data)"
+        )
     else:
         data["capital_allocation_label"] = "Unavailable"
 
@@ -96,7 +109,9 @@ def compute_roce_proxy(bs_row, pnl_row):
     """
     if pnl_row["operating_profit"] is None or pd.isna(pnl_row["operating_profit"]):
         return None
-    capital_employed = (bs_row["equity_capital"] or 0) + (bs_row["reserves"] or 0) + (bs_row["borrowings"] or 0)
+    capital_employed = (
+        (bs_row["equity_capital"] or 0) + (bs_row["reserves"] or 0) + (bs_row["borrowings"] or 0)
+    )
     if capital_employed <= 0:
         return None
     return round((pnl_row["operating_profit"] / capital_employed) * 100, 2)
@@ -109,6 +124,7 @@ def build_kpi_tiles(data):
     latest = ratios.iloc[-1] if len(ratios) else None
 
     def fmt(value, suffix=""):
+        """Fmt for the given value, suffix."""
         return f"{value:.1f}{suffix}" if pd.notna(value) else "N/A"
 
     tiles = [
@@ -128,18 +144,23 @@ def build_kpi_tiles(data):
     rows = [cells[0:3], cells[3:6]]
     tile_width = (PAGE_W - 2 * 1.5 * cm) / 3
     table = Table(rows, colWidths=[tile_width] * 3, rowHeights=[2.1 * cm] * 2)
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREY),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.grey),
-        ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.white),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-    ]))
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), LIGHT_GREY),
+                ("BOX", (0, 0), (-1, -1), 0.5, colors.grey),
+                ("INNERGRID", (0, 0), (-1, -1), 0.5, colors.white),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("TOPPADDING", (0, 0), (-1, -1), 8),
+            ]
+        )
+    )
     return table
 
 
 def chart_revenue_profit(data, ticker, tmp_dir):
+    """Chart revenue profit for the given data, ticker, tmp_dir."""
     pnl = data["pnl"].tail(10)
     fig, ax = plt.subplots(figsize=(6.4, 2.6), dpi=150)
     x = range(len(pnl))
@@ -159,6 +180,7 @@ def chart_revenue_profit(data, ticker, tmp_dir):
 
 
 def chart_roe_roce(data, ticker, tmp_dir):
+    """Chart roe roce for the given data, ticker, tmp_dir."""
     ratios = data["ratios"].tail(10)
     bs = data["bs"]
     pnl = data["pnl"]
@@ -173,7 +195,14 @@ def chart_roe_roce(data, ticker, tmp_dir):
             roce_values.append(None)
 
     fig, ax1 = plt.subplots(figsize=(6.4, 2.6), dpi=150)
-    ax1.plot(ratios["year"], ratios["return_on_equity_pct"], color="#0A2540", marker="o", markersize=3, label="ROE %")
+    ax1.plot(
+        ratios["year"],
+        ratios["return_on_equity_pct"],
+        color="#0A2540",
+        marker="o",
+        markersize=3,
+        label="ROE %",
+    )
     ax1.set_ylabel("ROE %", fontsize=7, color="#0A2540")
     ax1.tick_params(axis="y", labelsize=7, labelcolor="#0A2540")
     ax1.set_xticks(range(len(ratios)))
@@ -193,13 +222,19 @@ def chart_roe_roce(data, ticker, tmp_dir):
 
 
 def chart_balance_sheet_composition(data, ticker, tmp_dir):
+    """Chart balance sheet composition for the given data, ticker, tmp_dir."""
     bs = data["bs"].tail(10).copy()
     bs["equity"] = bs["equity_capital"] + bs["reserves"]
     fig, ax = plt.subplots(figsize=(6.4, 2.6), dpi=150)
     ax.bar(bs["year"], bs["equity"], label="Equity", color="#0A2540")
     ax.bar(bs["year"], bs["borrowings"], bottom=bs["equity"], label="Borrowings", color="#B3261E")
-    ax.bar(bs["year"], bs["other_liabilities"], bottom=bs["equity"] + bs["borrowings"],
-           label="Other Liabilities", color="#9CA3AF")
+    ax.bar(
+        bs["year"],
+        bs["other_liabilities"],
+        bottom=bs["equity"] + bs["borrowings"],
+        label="Other Liabilities",
+        color="#9CA3AF",
+    )
     ax.set_xticks(range(len(bs)))
     ax.set_xticklabels(bs["year"], rotation=45, ha="right", fontsize=7)
     ax.tick_params(axis="y", labelsize=7)
@@ -240,6 +275,7 @@ def chart_cashflow_waterfall(data, ticker, tmp_dir):
 
 
 def build_pros_cons_table(data):
+    """Build pros cons table for the given data."""
     pc = data["pros_cons"]
     pros = pc[pc["type"] == "pro"].sort_values("confidence_pct", ascending=False)
     cons = pc[pc["type"] == "con"].sort_values("confidence_pct", ascending=False)
@@ -248,10 +284,15 @@ def build_pros_cons_table(data):
     if len(pros):
         rows = [[Paragraph(f"+ {row['text']}", styles["pro"])] for _, row in pros.iterrows()]
         table = Table(rows, colWidths=[PAGE_W - 3 * cm])
-        table.setStyle(TableStyle([
-            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
         elements.append(table)
     else:
         elements.append(Paragraph("No pros generated for this company.", styles["pro"]))
@@ -261,10 +302,15 @@ def build_pros_cons_table(data):
     if len(cons):
         rows = [[Paragraph(f"- {row['text']}", styles["con"])] for _, row in cons.iterrows()]
         table = Table(rows, colWidths=[PAGE_W - 3 * cm])
-        table.setStyle(TableStyle([
-            ("LEFTPADDING", (0, 0), (-1, -1), 4), ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-        ]))
+        table.setStyle(
+            TableStyle(
+                [
+                    ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                    ("TOPPADDING", (0, 0), (-1, -1), 3),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+                ]
+            )
+        )
         elements.append(table)
     else:
         elements.append(Paragraph("No cons generated for this company.", styles["con"]))
@@ -273,25 +319,39 @@ def build_pros_cons_table(data):
 
 
 def build_capital_allocation_badge(data):
+    """Build capital allocation badge for the given data."""
     label = data["capital_allocation_label"]
     badge_colors = {
-        "Shareholder Returns": GREEN, "Reinvestor": colors.HexColor("#1D4ED8"),
-        "Mixed": colors.HexColor("#B45309"), "Growth Funded by Debt": colors.HexColor("#B45309"),
-        "Liquidating Assets": colors.HexColor("#B45309"), "Distress Signal": RED,
-        "Pre-Revenue": RED, "Cash Accumulator": colors.HexColor("#1D4ED8"), "Unclassified": colors.grey,
+        "Shareholder Returns": GREEN,
+        "Reinvestor": colors.HexColor("#1D4ED8"),
+        "Mixed": colors.HexColor("#B45309"),
+        "Growth Funded by Debt": colors.HexColor("#B45309"),
+        "Liquidating Assets": colors.HexColor("#B45309"),
+        "Distress Signal": RED,
+        "Pre-Revenue": RED,
+        "Cash Accumulator": colors.HexColor("#1D4ED8"),
+        "Unclassified": colors.grey,
     }
     bg = badge_colors.get(label, colors.grey)
-    table = Table([[Paragraph(f"Capital Allocation Pattern: {label}", styles["badge_text"])]],
-                  colWidths=[PAGE_W - 3 * cm], rowHeights=[1.1 * cm])
-    table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), bg),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
-    ]))
+    table = Table(
+        [[Paragraph(f"Capital Allocation Pattern: {label}", styles["badge_text"])]],
+        colWidths=[PAGE_W - 3 * cm],
+        rowHeights=[1.1 * cm],
+    )
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), bg),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+            ]
+        )
+    )
     return table
 
 
 def navy_header(canvas_obj, doc, company_name, ticker):
+    """Navy header for the given canvas_obj, doc, company_name, ticker."""
     canvas_obj.saveState()
     canvas_obj.setFillColor(NAVY)
     canvas_obj.rect(0, PAGE_H - 2.2 * cm, PAGE_W, 2.2 * cm, fill=1, stroke=0)
@@ -322,19 +382,29 @@ def build_tearsheet(ticker):
     out_path = TEARSHEET_DIR / f"{ticker}_tearsheet.pdf"
 
     doc = SimpleDocTemplate(
-        str(out_path), pagesize=A4,
-        topMargin=2.6 * cm, bottomMargin=1.5 * cm, leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        str(out_path),
+        pagesize=A4,
+        topMargin=2.6 * cm,
+        bottomMargin=1.5 * cm,
+        leftMargin=1.5 * cm,
+        rightMargin=1.5 * cm,
     )
 
     story = []
     story.append(build_kpi_tiles(data))
     story.append(Spacer(1, 0.4 * cm))
-    story.append(Image(str(chart_revenue_profit(data, ticker, TMP_CHART_DIR)), width=17 * cm, height=6.9 * cm))
+    story.append(
+        Image(str(chart_revenue_profit(data, ticker, TMP_CHART_DIR)), width=17 * cm, height=6.9 * cm)
+    )
     story.append(Spacer(1, 0.2 * cm))
     story.append(Image(str(chart_roe_roce(data, ticker, TMP_CHART_DIR)), width=17 * cm, height=6.9 * cm))
 
     story.append(PageBreak())
-    story.append(Image(str(chart_balance_sheet_composition(data, ticker, TMP_CHART_DIR)), width=17 * cm, height=6.9 * cm))
+    story.append(
+        Image(
+            str(chart_balance_sheet_composition(data, ticker, TMP_CHART_DIR)), width=17 * cm, height=6.9 * cm
+        )
+    )
     story.append(Spacer(1, 0.2 * cm))
 
     waterfall_path = chart_cashflow_waterfall(data, ticker, TMP_CHART_DIR)
@@ -349,6 +419,7 @@ def build_tearsheet(ticker):
     story.append(build_capital_allocation_badge(data))
 
     def on_page(canvas_obj, doc_obj):
+        """On page for the given canvas_obj, doc_obj."""
         navy_header(canvas_obj, doc_obj, company_name, ticker)
 
     doc.build(story, onFirstPage=on_page, onLaterPages=on_page)
@@ -358,7 +429,7 @@ def build_tearsheet(ticker):
 def run_batch_tearsheets():
     """
     Day 34 -- batch tearsheet generation for all 92 companies.
-    Returns (generated_list, skipped_df, failed_list). Companies with <3 years of profitandloss history are skipped 
+    Returns (generated_list, skipped_df, failed_list). Companies with <3 years of profitandloss history are skipped
     (build_tearsheet's own rule) and logged to output/skipped_tearsheets.csv, not silently dropped...
     """
     con = sqlite3.connect(DB_PATH)
@@ -380,7 +451,7 @@ def run_batch_tearsheets():
     skipped_df.to_csv(OUTPUT_DIR / "skipped_tearsheets.csv", index=False)
 
     if failed:
-        # Genuine failures (not the expected "thin history" skip) 
+        # Genuine failures (not the expected "thin history" skip)
         # get their own log rather than being silently absorbed into skipped_tearsheets.csv,
         # which is specifically for the documented skip rule.
         pd.DataFrame(failed).to_csv(OUTPUT_DIR / "tearsheet_failures.csv", index=False)

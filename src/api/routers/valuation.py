@@ -11,15 +11,19 @@ router = APIRouter()
 
 @router.get("/market-cap/{ticker}")
 def get_market_cap_history(ticker: str, conn=Depends(get_db_connection)):
+    """Get market cap history for the given ticker, conn."""
     if conn.execute("SELECT 1 FROM companies WHERE id = ?", (ticker,)).fetchone() is None:
         raise HTTPException(status_code=404, detail=f"Company '{ticker}' not found")
 
-    rows = conn.execute("""
+    rows = conn.execute(
+        """
         SELECT year, market_cap_crore, enterprise_value_crore, pe_ratio, pb_ratio,
                ev_ebitda, dividend_yield_pct
         FROM market_cap
         WHERE company_id = ?
         ORDER BY year
-    """, (ticker,)).fetchall()
+    """,
+        (ticker,),
+    ).fetchall()
 
     return {"company_id": ticker, "count": len(rows), "market_cap_history": [dict(r) for r in rows]}

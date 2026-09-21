@@ -1,12 +1,12 @@
-"""  
-SPRINT 2 
+"""
+SPRINT 2
 Day 8: Profitability ratios — NPM, OPM, ROE, ROCE, ROA
 """
 
 
 def net_profit_margin(net_profit, sales):
     """
-    NPM = net_profit / sales * 100 
+    NPM = net_profit / sales * 100
     Measures: how much of every ₹1 of sales becomes actual profit.
     Returns None if sales = 0 ---> dividing by zero sales is meaningless, not "0%".
     """
@@ -37,7 +37,7 @@ def operating_profit_margin(operating_profit, sales, reported_opm=None):
         if diff > 1:
             mismatch = True
 
-    return calculated_opm, mismatch\
+    return calculated_opm, mismatch
 
 
 def return_on_equity(net_profit, equity_capital, reserves):
@@ -97,6 +97,7 @@ def return_on_assets(net_profit, total_assets):
 """
 Day 9 - Add Leverage & Efficiency Ratios:
 """
+
 
 def debt_to_equity(borrowings, equity_capital, reserves):
     """

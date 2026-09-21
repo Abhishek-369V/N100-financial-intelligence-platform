@@ -2,18 +2,19 @@
 Day 17: Composite quality score (0-100), winsorization, sector-relative normalization, and screener_output.xlsx generation.
 """
 
-import pandas as pd
-import numpy as np
-from pathlib import Path
-from sqlalchemy import create_engine
 import sys
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+from sqlalchemy import create_engine
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(BASE_DIR / "src" / "analytics"))
 sys.path.insert(0, str(BASE_DIR / "src" / "screener"))
 
-from cagr import compute_cagr_for_window  #type:ignore
-from presets import PRESETS, load_universe
+from cagr import compute_cagr_for_window  # type: ignore
+from presets import load_universe
 
 OUTPUT_PATH = BASE_DIR / "output"
 DB_PATH = BASE_DIR / "db" / "nifty100.db"
@@ -22,9 +23,9 @@ db_engine = create_engine(f"sqlite:///{DB_PATH}")
 
 def winsorize(series, low_pct=10, high_pct=90):
     """
-    Caps extreme values at the 10th and 90th percentile BEFORE scaling. 
+    Caps extreme values at the 10th and 90th percentile BEFORE scaling.
     This is the formal fix for BEL/INDIGO-style outliers (4744% ROE, 892% ROE)
-    -- instead of a company's absurd artifact value distorting the whole scoring range, 
+    -- instead of a company's absurd artifact value distorting the whole scoring range,
     it gets pulled down to whatever the 90th percentile genuinely is across the real company universe.
     """
     if series.dropna().empty:
@@ -51,17 +52,19 @@ def scale_0_100(series, invert=False):
 
 def compute_fcf_cagr_5yr(df):
     """
-    FCF CAGR is required by the spec's scoring formula but was never computed in Sprint 2 
-    -- cashflow_kpis.py built free_cash_flow() as a per-year value, not a growth-over-time metric. 
-    Computing it here using the existing CAGR engine (Sprint 2's compute_cagr_for_window), 
+    FCF CAGR is required by the spec's scoring formula but was never computed in Sprint 2
+    -- cashflow_kpis.py built free_cash_flow() as a per-year value, not a growth-over-time metric.
+    Computing it here using the existing CAGR engine (Sprint 2's compute_cagr_for_window),
     reusing proven logic rather than writing new formula code from scratch.
     """
-    cf = pd.read_sql("SELECT company_id, year, operating_activity, investing_activity FROM cashflow", db_engine)
+    cf = pd.read_sql(
+        "SELECT company_id, year, operating_activity, investing_activity FROM cashflow", db_engine
+    )
     cf["fcf"] = cf["operating_activity"] + cf["investing_activity"]
 
     fcf_cagr_results = {}
     for company_id in df["company_id"].unique():
-        value, flag = compute_cagr_for_window(cf, company_id, "fcf", "year", 5)
+        value, _flag = compute_cagr_for_window(cf, company_id, "fcf", "year", 5)
         fcf_cagr_results[company_id] = value
 
     df = df.copy()
@@ -85,30 +88,41 @@ def compute_composite_score(df, sector_relative=False):
     df = compute_fcf_cagr_5yr(df)
 
     def score_group(group):
+        """Score group for the given group."""
         g = group.copy()
 
         # Profitability (35%)
         roe_scaled = scale_0_100(winsorize(g["return_on_equity_pct"]))
-        roce_scaled = scale_0_100(winsorize(g["roce_percentage"])) if "roce_percentage" in g.columns else pd.Series(50, index=g.index)
+        roce_scaled = (
+            scale_0_100(winsorize(g["roce_percentage"]))
+            if "roce_percentage" in g.columns
+            else pd.Series(50, index=g.index)
+        )
         npm_scaled = scale_0_100(winsorize(g["net_profit_margin_pct"]))
-        profitability = (roe_scaled * 0.15 + roce_scaled * 0.10 + npm_scaled * 0.10)
+        profitability = roe_scaled * 0.15 + roce_scaled * 0.10 + npm_scaled * 0.10
 
         # Cash Quality (30%)
         fcf_cagr_scaled = scale_0_100(winsorize(g["fcf_cagr_5yr"]))
-        cfo_pat_scaled = scale_0_100(winsorize(g["cash_from_operations_cr"] / g["net_profit"].replace(0, np.nan)))
+        cfo_pat_scaled = scale_0_100(
+            winsorize(g["cash_from_operations_cr"] / g["net_profit"].replace(0, np.nan))
+        )
         fcf_positive_flag = (g["free_cash_flow_cr"] > 0).astype(int) * 100
-        cash_quality = (fcf_cagr_scaled.fillna(0) * 0.15 + cfo_pat_scaled.fillna(0) * 0.10 + fcf_positive_flag * 0.05)
+        cash_quality = (
+            fcf_cagr_scaled.fillna(0) * 0.15 + cfo_pat_scaled.fillna(0) * 0.10 + fcf_positive_flag * 0.05
+        )
 
         # Growth (20%)
         rev_cagr_scaled = scale_0_100(winsorize(g["revenue_cagr_5yr"]))
         pat_cagr_scaled = scale_0_100(winsorize(g["pat_cagr_5yr"]))
-        growth = (rev_cagr_scaled.fillna(0) * 0.10 + pat_cagr_scaled.fillna(0) * 0.10)
+        growth = rev_cagr_scaled.fillna(0) * 0.10 + pat_cagr_scaled.fillna(0) * 0.10
 
         # Leverage (15%) -- D/E inverted (lower is better), ICR normal (higher is better)
         de_scaled = scale_0_100(winsorize(g["debt_to_equity"]), invert=True)
-        icr_for_scoring = g["interest_coverage"].fillna(1e9)  # Debt Free -> treated as max safety, same as Day 15's ICR rule
+        icr_for_scoring = g["interest_coverage"].fillna(
+            1e9
+        )  # Debt Free -> treated as max safety, same as Day 15's ICR rule
         icr_scaled = scale_0_100(winsorize(icr_for_scoring))
-        leverage = (de_scaled * 0.10 + icr_scaled * 0.05)
+        leverage = de_scaled * 0.10 + icr_scaled * 0.05
 
         g["composite_quality_score"] = (profitability + cash_quality + growth + leverage).round(2)
         return g
@@ -119,7 +133,7 @@ def compute_composite_score(df, sector_relative=False):
         return score_group(df)
 
 
-# Quick Smoke Test: let's verify the scoring output first -- before moving to the Excel generation half of Day 17!.. 
+# Quick Smoke Test: let's verify the scoring output first -- before moving to the Excel generation half of Day 17!..
 if __name__ == "__main__":
     universe = load_universe()
     scored = compute_composite_score(universe, sector_relative=False)
@@ -128,8 +142,11 @@ if __name__ == "__main__":
     print("=" * 60)
     print("COMPOSITE SCORE — TOP 10 (GLOBAL)")
     print("=" * 60)
-    print(scored.sort_values("composite_quality_score", ascending=False)
-          [["company_id", "composite_quality_score", "return_on_equity_pct"]].head(10))
+    print(
+        scored.sort_values("composite_quality_score", ascending=False)[
+            ["company_id", "composite_quality_score", "return_on_equity_pct"]
+        ].head(10)
+    )
 
     print("\n" + "=" * 60)
     print("BEL / INDIGO CHECK — did winsorization neutralize the outliers?")
@@ -137,13 +154,15 @@ if __name__ == "__main__":
     for cid in ["BEL", "INDIGO"]:
         row = scored[scored["company_id"] == cid]
         if not row.empty:
-            print(f"{cid}: raw ROE={row['return_on_equity_pct'].values[0]}%  "
-                  f"composite_score={row['composite_quality_score'].values[0]}")
+            print(
+                f"{cid}: raw ROE={row['return_on_equity_pct'].values[0]}%  "
+                f"composite_score={row['composite_quality_score'].values[0]}"
+            )
 
     print("\n" + "=" * 60)
     print("Check: after winsorization, what's the actual capped ROE value being used for scoring?")
     print("=" * 60)
     roe_winsorized = winsorize(scored["return_on_equity_pct"])
     print("90th percentile ROE (the cap):", scored["return_on_equity_pct"].quantile(0.90))
-    print("INDIGO's winsorized ROE contribution:", roe_winsorized[scored["company_id"]=="INDIGO"].values)
+    print("INDIGO's winsorized ROE contribution:", roe_winsorized[scored["company_id"] == "INDIGO"].values)
     print()

@@ -1,40 +1,42 @@
 """Day 24 — Screener screen: 10 sliders, 6 presets, live table, CSV export."""
+
 import sys
 from pathlib import Path
-import streamlit as st
+
 import pandas as pd
+import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from utils.db import db_engine
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "screener"))
-from engine import load_universe, apply_filter, load_config #type:ignore
-from composite_score import compute_composite_score #type:ignore
+from composite_score import compute_composite_score  # type: ignore
+from engine import apply_filter, load_config, load_universe  # type: ignore
 
 st.set_page_config(layout="wide")
 
 st.title("Screener")
 
-# Bounds are practical display ranges, 
+# Bounds are practical display ranges,
 # not the true data min/max — a few known outliers exist beyond these (e.g. BEL's 4744% ROE, D/E up to 14.9).
-# Those companies simply always pass a "min" slider or always fail a "max" slider at the display cap; 
+# Those companies simply always pass a "min" slider or always fail a "max" slider at the display cap;
 # nothing is excluded from the underlying data.
 SLIDERS = [
-    ("ROE min (%)",              "roe_min",              0.0, 100.0, 1.0,   0.0),
-    ("D/E max",                  "de_max",               0.0, 3.0,   0.1,   3.0),
-    ("FCF min (₹ Cr)",           "fcf_min",         -50000.0, 50000.0, 500.0, -50000.0),
-    ("Revenue CAGR 5yr min (%)", "revenue_cagr_5yr_min", -10.0, 40.0, 1.0,  -10.0),
-    ("PAT CAGR 5yr min (%)",     "pat_cagr_5yr_min",    -30.0, 130.0, 1.0,  -30.0),
-    ("OPM min (%)",              "opm_min",               0.0, 100.0, 1.0,   0.0),
-    ("P/E max",                  "pe_max",                0.0, 80.0,  1.0,  80.0),
-    ("P/B max",                  "pb_max",                0.0, 15.0,  0.5,  15.0),
-    ("Dividend Yield min (%)",   "dividend_yield_min",    0.0, 5.0,   0.1,   0.0),
-    ("ICR min",                  "icr_min",               0.0, 50.0,  1.0,   0.0),
+    ("ROE min (%)", "roe_min", 0.0, 100.0, 1.0, 0.0),
+    ("D/E max", "de_max", 0.0, 3.0, 0.1, 3.0),
+    ("FCF min (₹ Cr)", "fcf_min", -50000.0, 50000.0, 500.0, -50000.0),
+    ("Revenue CAGR 5yr min (%)", "revenue_cagr_5yr_min", -10.0, 40.0, 1.0, -10.0),
+    ("PAT CAGR 5yr min (%)", "pat_cagr_5yr_min", -30.0, 130.0, 1.0, -30.0),
+    ("OPM min (%)", "opm_min", 0.0, 100.0, 1.0, 0.0),
+    ("P/E max", "pe_max", 0.0, 80.0, 1.0, 80.0),
+    ("P/B max", "pb_max", 0.0, 15.0, 0.5, 15.0),
+    ("Dividend Yield min (%)", "dividend_yield_min", 0.0, 5.0, 0.1, 0.0),
+    ("ICR min", "icr_min", 0.0, 50.0, 1.0, 0.0),
 ]
 
-# Preset -> slider mapping. 
+# Preset -> slider mapping.
 # 2 of the 6 presets (Debt-Free Blue Chip, Turnaround Watch) use conditions the 10 sliders can't fully express
-# (exact D/E==0 + sales>5000; YoY D/E decline + an unbuilt revenue_cagr_3yr column, per presets.py's own documented gap). 
+# (exact D/E==0 + sales>5000; YoY D/E decline + an unbuilt revenue_cagr_3yr column, per presets.py's own documented gap).
 # Each button applies what it can and surfaces what it can't.
 PRESETS = {
     "Quality Compounder": (
@@ -59,9 +61,9 @@ PRESETS = {
     ),
     "Turnaround Watch": (
         {"fcf_min": 1.0},
-        "Preset also requires Revenue CAGR 3yr > 10% (column doesn't exist yet, "
+        ("Preset also requires Revenue CAGR 3yr > 10% (column doesn't exist yet, "
         "documented Sprint 3 gap) and YoY-declining D/E (needs a 2-year comparison, "
-        "not a single-snapshot slider) - neither is applied here, only FCF > 0.",
+        "not a single-snapshot slider) - neither is applied here, only FCF > 0."),
     ),
 }
 
@@ -93,11 +95,9 @@ for label, key, lo, hi, step, default in SLIDERS:
 config = load_config()
 universe = load_universe()
 
-# Same fix as Day 23 Home: load_universe() doesn't merge in companies.roce_percentage or company_name, 
+# Same fix as Day 23 Home: load_universe() doesn't merge in companies.roce_percentage or company_name,
 # needed for display + the composite score's ROCE component.
-extra = pd.read_sql(
-    "SELECT id AS company_id, company_name, roce_percentage FROM companies", db_engine
-)
+extra = pd.read_sql("SELECT id AS company_id, company_name, roce_percentage FROM companies", db_engine)
 universe = universe.merge(extra, on="company_id", how="left")
 
 filtered = universe.copy()
@@ -115,13 +115,25 @@ filtered = compute_composite_score(filtered, sector_relative=False)
 st.subheader(f"{len(filtered)} companies match your filters")
 
 display_cols = [
-    "company_id", "company_name", "broad_sector", "composite_quality_score",
-    "return_on_equity_pct", "debt_to_equity", "free_cash_flow_cr",
-    "revenue_cagr_5yr", "pat_cagr_5yr", "operating_profit_margin_pct",
-    "pe_ratio", "pb_ratio", "dividend_yield_pct", "interest_coverage",
+    "company_id",
+    "company_name",
+    "broad_sector",
+    "composite_quality_score",
+    "return_on_equity_pct",
+    "debt_to_equity",
+    "free_cash_flow_cr",
+    "revenue_cagr_5yr",
+    "pat_cagr_5yr",
+    "operating_profit_margin_pct",
+    "pe_ratio",
+    "pb_ratio",
+    "dividend_yield_pct",
+    "interest_coverage",
 ]
 display_cols = [c for c in display_cols if c in filtered.columns]
-result_table = filtered[display_cols].sort_values("composite_quality_score", ascending=False, na_position="last")
+result_table = filtered[display_cols].sort_values(
+    "composite_quality_score", ascending=False, na_position="last"
+)
 
 st.dataframe(result_table, hide_index=True, width="stretch")
 

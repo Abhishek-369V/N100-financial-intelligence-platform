@@ -1,13 +1,15 @@
 """Day 25 — Trend Analysis: company search + up-to-3-metric overlay, YoY annotations."""
+
 import sys
 from pathlib import Path
-import streamlit as st
+
 import pandas as pd
 import plotly.graph_objects as go
+import streamlit as st
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import get_companies, get_ratios, get_pl
+from utils.db import get_companies, get_pl, get_ratios
 
 st.set_page_config(layout="wide")
 
@@ -35,11 +37,7 @@ CR_METRICS = {
 }
 ALL_METRICS = {**PCT_METRICS, **CR_METRICS}
 
-selected = st.multiselect(
-    "Metrics to overlay (up to 3)", 
-    list(ALL_METRICS.keys()), 
-    max_selections=3
-)
+selected = st.multiselect("Metrics to overlay (up to 3)", list(ALL_METRICS.keys()), max_selections=3)
 
 if not picked:
     st.caption("Search a company and pick up to 3 metrics to see their 10-year trend.")
@@ -49,7 +47,7 @@ else:
     ticker = picked.split(" — ")[0]
     ratios = get_ratios(ticker).sort_values("year").tail(10)
     pl = get_pl(ticker).sort_values("year").tail(10)
-    # ratios and pl may not share identical year sets 
+    # ratios and pl may not share identical year sets
     # (different source files) -- merge on year so every plotted point has a matching x-axis label
     merged = pd.merge(ratios, pl, on=["company_id", "year"], how="outer").sort_values("year")
 
@@ -70,7 +68,10 @@ else:
         on_secondary = metric_label in CR_METRICS
         fig.add_trace(
             go.Scatter(
-                x=series["year"], y=series[col], name=metric_label, mode="lines+markers+text",
+                x=series["year"],
+                y=series[col],
+                name=metric_label,
+                mode="lines+markers+text",
                 text=[f"{v:+.1f}% YoY" if pd.notna(v) else "" for v in yoy_pct],
                 textposition="top center",
                 hovertemplate="%{x}: %{y:,.1f}<br>%{text}<extra>" + metric_label + "</extra>",
@@ -78,12 +79,14 @@ else:
             secondary_y=on_secondary,
         )
 
-    fig.update_layout(height=460, margin=dict(t=30, b=30), hovermode="x unified")
+    fig.update_layout(height=460, margin={"t": 30, "b": 30}, hovermode="x unified")
     if has_pct:
         fig.update_yaxes(title_text="% / ratio", secondary_y=False)
     if has_cr:
         fig.update_yaxes(title_text="₹ Cr", secondary_y=True)
 
     st.plotly_chart(fig, width="stretch")
-    st.caption("YoY % change is shown above each point and in its hover label. Metrics "
-               "measured in % share the left axis; ₹ Cr metrics use the right axis.")
+    st.caption(
+        "YoY % change is shown above each point and in its hover label. Metrics "
+        "measured in % share the left axis; ₹ Cr metrics use the right axis."
+    )

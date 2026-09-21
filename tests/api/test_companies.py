@@ -95,7 +95,7 @@ def test_get_company_tearsheet_returns_pdf(client):
 
 
 def test_get_company_tearsheet_skipped_company_404(client):
-    """JIOFIN was deliberately skipped in Sprint 5 Day 34 batch generation (<3 years of data) 
+    """JIOFIN was deliberately skipped in Sprint 5 Day 34 batch generation (<3 years of data)
     -- should 404 with a message explaining why, not a generic 'not found'."""
     response = client.get("/api/v1/companies/JIOFIN/tearsheet")
     assert response.status_code == 404
