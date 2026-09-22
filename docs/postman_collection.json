@@ -23,7 +23,57 @@
           "variable": [],
           "query": []
         },
-        "description": ""
+        "description": "Get health for the given conn."
+      }
+    },
+    {
+      "name": "Get Home Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/v1/dashboard/home",
+          "host": [
+            "http://127.0.0.1:8000"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "dashboard",
+            "home"
+          ],
+          "variable": [],
+          "query": [
+            {
+              "key": "year",
+              "value": "",
+              "disabled": true
+            }
+          ]
+        },
+        "description": "Return all data required by the Home dashboard for one calendar year."
+      }
+    },
+    {
+      "name": "Get Capital Allocation Dashboard",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/v1/dashboard/capital-allocation",
+          "host": [
+            "http://127.0.0.1:8000"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "dashboard",
+            "capital-allocation"
+          ],
+          "variable": [],
+          "query": []
+        },
+        "description": "Return the latest cash-flow classification used by the treemap."
       }
     },
     {
@@ -60,7 +110,7 @@
             }
           ]
         },
-        "description": ""
+        "description": "List companies for the given sector, market_cap_category, search, conn."
       }
     },
     {
@@ -87,7 +137,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Get company profile for the given ticker, conn."
       }
     },
     {
@@ -126,7 +176,7 @@
             }
           ]
         },
-        "description": ""
+        "description": "Get profit and loss for the given ticker, from_year, to_year, conn."
       }
     },
     {
@@ -165,7 +215,7 @@
             }
           ]
         },
-        "description": ""
+        "description": "Get balance sheet for the given ticker, from_year, to_year, conn."
       }
     },
     {
@@ -204,7 +254,7 @@
             }
           ]
         },
-        "description": ""
+        "description": "Get cashflow for the given ticker, from_year, to_year, conn."
       }
     },
     {
@@ -238,7 +288,7 @@
             }
           ]
         },
-        "description": ""
+        "description": "Get ratios for the given ticker, year, conn."
       }
     },
     {
@@ -266,7 +316,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Get tearsheet for the given ticker, conn."
       }
     },
     {
@@ -317,13 +367,33 @@
               "disabled": true
             },
             {
+              "key": "min_opm",
+              "value": "",
+              "disabled": true
+            },
+            {
               "key": "max_pe",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "max_pb",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "min_dividend_yield",
+              "value": "",
+              "disabled": true
+            },
+            {
+              "key": "min_icr",
               "value": "",
               "disabled": true
             }
           ]
         },
-        "description": ""
+        "description": "Run the same screening engine used by the analytical application."
       }
     },
     {
@@ -344,7 +414,7 @@
           "variable": [],
           "query": []
         },
-        "description": ""
+        "description": "List sectors for the given conn."
       }
     },
     {
@@ -372,7 +442,28 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Get sector companies for the given sector_name, conn."
+      }
+    },
+    {
+      "name": "List Peer Groups",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://127.0.0.1:8000/api/v1/peers",
+          "host": [
+            "http://127.0.0.1:8000"
+          ],
+          "path": [
+            "api",
+            "v1",
+            "peers"
+          ],
+          "variable": [],
+          "query": []
+        },
+        "description": "Return the distinct peer-group names for the dashboard selector."
       }
     },
     {
@@ -399,7 +490,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Return members, names, latest KPIs and percentile metrics for a peer group."
       }
     },
     {
@@ -428,7 +519,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Compare a company to its peer group using the stored percentile dataset."
       }
     },
     {
@@ -455,7 +546,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Get market cap history for the given ticker, conn."
       }
     },
     {
@@ -477,7 +568,7 @@
           "variable": [],
           "query": []
         },
-        "description": ""
+        "description": "Get portfolio stats."
       }
     },
     {
@@ -505,7 +596,7 @@
           ],
           "query": []
         },
-        "description": ""
+        "description": "Get company documents for the given ticker, conn."
       }
     }
   ]

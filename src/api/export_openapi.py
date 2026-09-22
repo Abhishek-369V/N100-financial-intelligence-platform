@@ -4,6 +4,7 @@ Run with: python -m src.api.export_openapi
 """
 
 import json
+import os
 from pathlib import Path
 
 from src.api.main import app
@@ -29,7 +30,7 @@ def build_postman_collection(openapi_schema):
     dependency-free converter rather than pulling in a full openapi-to-postman package for a one-off export.
     """
     items = []
-    base_url = "http://127.0.0.1:8000"
+    base_url = os.getenv("N100_API_BASE_URL", "http://127.0.0.1:8000").rstrip("/")
 
     for path, methods in openapi_schema.get("paths", {}).items():
         for method, details in methods.items():
