@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from src.api.routers import (
     companies,
+    dashboard,
     documents,
     health,
     peers,
@@ -51,6 +52,7 @@ async def log_requests(request: Request, call_next):
 
 
 app.include_router(health.router, prefix="/api/v1", tags=["health"])
+app.include_router(dashboard.router, prefix="/api/v1", tags=["dashboard"])
 app.include_router(companies.router, prefix="/api/v1", tags=["companies"])
 app.include_router(screener.router, prefix="/api/v1", tags=["screener"])
 app.include_router(sectors.router, prefix="/api/v1", tags=["sectors"])

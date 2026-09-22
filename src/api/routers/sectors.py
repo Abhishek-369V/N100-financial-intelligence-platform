@@ -79,13 +79,32 @@ def get_sector_companies(sector_name: str, conn=Depends(get_db_connection)):
         """
         SELECT s.company_id, c.company_name, s.sub_sector,
                fr.return_on_equity_pct, fr.debt_to_equity, fr.operating_profit_margin_pct,
-               fr.revenue_cagr_5yr, fr.pat_cagr_5yr
+               fr.revenue_cagr_5yr, fr.pat_cagr_5yr,
+               pnl.sales, mc.market_cap_crore
         FROM sectors s
         JOIN companies c ON c.id = s.company_id
         LEFT JOIN (
             SELECT company_id, MAX(year) AS latest_year FROM financial_ratios GROUP BY company_id
         ) latest ON latest.company_id = s.company_id
         LEFT JOIN financial_ratios fr ON fr.company_id = latest.company_id AND fr.year = latest.latest_year
+        LEFT JOIN (
+            SELECT p.company_id, p.sales
+            FROM profitandloss p
+            JOIN (
+                SELECT company_id, MAX(year) AS latest_year
+                FROM profitandloss
+                GROUP BY company_id
+            ) latest_p ON latest_p.company_id = p.company_id AND latest_p.latest_year = p.year
+        ) pnl ON pnl.company_id = s.company_id
+        LEFT JOIN (
+            SELECT m.company_id, m.market_cap_crore
+            FROM market_cap m
+            JOIN (
+                SELECT company_id, MAX(year) AS latest_year
+                FROM market_cap
+                GROUP BY company_id
+            ) latest_m ON latest_m.company_id = m.company_id AND latest_m.latest_year = m.year
+        ) mc ON mc.company_id = s.company_id
         WHERE s.broad_sector = ?
         ORDER BY c.company_name
     """,

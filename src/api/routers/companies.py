@@ -90,11 +90,16 @@ def get_company_profile(ticker: str, conn=Depends(get_db_connection)):
 
     sector = conn.execute("SELECT * FROM sectors WHERE company_id = ?", (ticker,)).fetchone()
     latest_ratios = get_latest_ratios_row(conn, ticker)
+    pros_cons = conn.execute(
+        "SELECT pros, cons FROM prosandcons WHERE company_id = ? ORDER BY id DESC LIMIT 1",
+        (ticker,),
+    ).fetchone()
 
     return {
         "company": row_to_dict(company),
         "sector": row_to_dict(sector),
         "latest_year_kpis": row_to_dict(latest_ratios),
+        "pros_cons": row_to_dict(pros_cons),
     }
 
 

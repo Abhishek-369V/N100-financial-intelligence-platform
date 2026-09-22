@@ -1,8 +1,4 @@
-"""
-Sprint 6, Day 40:
-GET /api/v1/peers/{group_name},
-GET /api/v1/companies/{ticker}/peers/compare
-"""
+"""Peer-group data endpoints used by the dashboard and API clients."""
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -24,9 +20,35 @@ RADAR_METRICS = [
 ]
 
 
+def _latest_ratio_subquery() -> str:
+    return """
+        SELECT fr.*
+        FROM financial_ratios fr
+        JOIN (
+            SELECT company_id, MAX(year) AS latest_year
+            FROM financial_ratios
+            GROUP BY company_id
+        ) latest
+          ON latest.company_id = fr.company_id
+         AND latest.latest_year = fr.year
+    """
+
+
+@router.get("/peers")
+def list_peer_groups(conn=Depends(get_db_connection)):
+    """Return the distinct peer-group names for the dashboard selector."""
+    rows = conn.execute(
+        "SELECT DISTINCT peer_group_name FROM peer_groups ORDER BY peer_group_name"
+    ).fetchall()
+    return {
+        "count": len(rows),
+        "peer_groups": [row["peer_group_name"] for row in rows],
+    }
+
+
 @router.get("/peers/{group_name}")
 def get_peer_group(group_name: str, conn=Depends(get_db_connection)):
-    """Get peer group for the given group_name, conn."""
+    """Return members, names, latest KPIs and percentile metrics for a peer group."""
     known_groups = {
         r["peer_group_name"]
         for r in conn.execute("SELECT DISTINCT peer_group_name FROM peer_groups").fetchall()
@@ -39,22 +61,61 @@ def get_peer_group(group_name: str, conn=Depends(get_db_connection)):
     ).fetchall()
 
     percentiles = conn.execute(
-        "SELECT company_id, metric, value, percentile_rank FROM peer_percentiles WHERE peer_group_name = ?",
+        """
+        SELECT company_id, metric, value, percentile_rank
+        FROM peer_percentiles
+        WHERE peer_group_name = ?
+        """,
         (group_name,),
     ).fetchall()
 
     by_company = {}
     for row in percentiles:
         entry = by_company.setdefault(row["company_id"], {})
-        entry[row["metric"]] = {"value": row["value"], "percentile_rank": row["percentile_rank"]}
+        entry[row["metric"]] = {
+            "value": row["value"],
+            "percentile_rank": row["percentile_rank"],
+        }
+
+    ratios_sql = _latest_ratio_subquery()
+    latest_rows = conn.execute(
+        f"""
+        SELECT c.id AS company_id, c.company_name, c.roce_percentage, fr.*
+        FROM companies c
+        LEFT JOIN ({ratios_sql}) fr ON fr.company_id = c.id
+        WHERE c.id IN (
+            SELECT company_id FROM peer_groups WHERE peer_group_name = ?
+        )
+        """,
+        (group_name,),
+    ).fetchall()
+    latest_by_company = {row["company_id"]: dict(row) for row in latest_rows}
 
     companies = []
     for member in members:
+        company_id = member["company_id"]
+        latest = latest_by_company.get(company_id, {})
+        latest_kpis = {
+            key: latest.get(key)
+            for key in [
+                "composite_quality_score",
+                "return_on_equity_pct",
+                "roce_percentage",
+                "net_profit_margin_pct",
+                "debt_to_equity",
+                "free_cash_flow_cr",
+                "pat_cagr_5yr",
+                "revenue_cagr_5yr",
+                "interest_coverage",
+            ]
+        }
         companies.append(
             {
-                "company_id": member["company_id"],
+                "company_id": company_id,
+                "company_name": latest.get("company_name"),
                 "is_benchmark": bool(member["is_benchmark"]),
-                "metrics": by_company.get(member["company_id"], {}),
+                "latest_kpis": latest_kpis,
+                "metrics": by_company.get(company_id, {}),
             }
         )
 
@@ -63,7 +124,7 @@ def get_peer_group(group_name: str, conn=Depends(get_db_connection)):
 
 @router.get("/companies/{ticker}/peers/compare")
 def compare_to_peers(ticker: str, conn=Depends(get_db_connection)):
-    """Compare to peers for the given ticker, conn."""
+    """Compare a company to its peer group using the stored percentile dataset."""
     company_exists = conn.execute("SELECT 1 FROM companies WHERE id = ?", (ticker,)).fetchone()
     if company_exists is None:
         raise HTTPException(status_code=404, detail=f"Company '{ticker}' not found")
