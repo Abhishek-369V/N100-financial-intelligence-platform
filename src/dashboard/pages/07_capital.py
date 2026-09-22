@@ -54,11 +54,30 @@ merged = merged.merge(companies, on="company_id", how="left").merge(sectors, on=
 if len(merged) < 92:
     st.caption(f"{len(merged)} of 92 companies have a latest-year cashflow row to classify.")
 
+# Keep the treemap aligned with the app's Deep Navy / Teal visual system.
+# Distinct patterns remain easy to tell apart without the bright default Plotly palette.
+PATTERN_COLORS = {
+    "Reinvestor": "#00D2C4",
+    "Shareholder Returns": "#3B82F6",
+    "Growth Funded by Debt": "#F59E0B",
+    "Distress Signal": "#EF4444",
+    "Liquidating Assets": "#8B5CF6",
+    "Mixed": "#64748B",
+    "Pre-Revenue": "#A78BFA",
+    "Cash Accumulator": "#22C55E",
+    "Unclassified": "#475569",
+}
+
 fig = px.treemap(
     merged,
     path=["pattern_label", "company_id"],
     values=[1] * len(merged),
     color="pattern_label",
+    color_discrete_map=PATTERN_COLORS,
+)
+fig.update_traces(
+    marker_line_color="#07111F",
+    marker_line_width=1.5,
 )
 fig.update_layout(height=550, margin={"t": 20, "b": 20})
 

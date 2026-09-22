@@ -87,10 +87,11 @@ if st.session_state["_preset_note"]:
 
 st.divider()
 
-st.sidebar.subheader("Filters")
-thresholds = {}
-for label, key, lo, hi, step, default in SLIDERS:
-    thresholds[key] = st.sidebar.slider(label, lo, hi, key=key, step=step)
+with st.sidebar.expander("Screening Filters", expanded=True):
+    st.caption("Refine the 92-company universe")
+    thresholds = {}
+    for label, key, lo, hi, step, default in SLIDERS:
+        thresholds[key] = st.slider(label, lo, hi, key=key, step=step)
 
 config = load_config()
 universe = load_universe()

@@ -147,8 +147,19 @@ kpi_table = group_df[table_cols].sort_values("is_benchmark", ascending=False)
 
 
 def highlight_benchmark(row):
-    """Highlight benchmark for the given row."""
-    return ["background-color: #FFD700" if row["is_benchmark"] == 1 else "" for _ in row]
+    """Use a subtle theme-aligned highlight for the benchmark row."""
+    if row["is_benchmark"] == 1:
+        return [
+            (
+                "background-color: #123B43; "
+                "color: #E6EDF2; "
+                "font-weight: 600; "
+                "border-top: 1px solid #00D2C4; "
+                "border-bottom: 1px solid rgba(0, 210, 196, 0.35);"
+            )
+            for _ in row
+        ]
+    return [""] * len(row)
 
 
 st.dataframe(kpi_table.style.apply(highlight_benchmark, axis=1), hide_index=True, width="stretch")

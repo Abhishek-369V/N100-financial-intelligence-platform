@@ -18,7 +18,55 @@ from engine import load_universe  # type: ignore
 # Force wide mode configuration to ensure - No UI break - 6 metrics stay side-by-side
 st.set_page_config(layout="wide")
 
-st.title("Home")
+st.markdown(
+    """
+    <div class="n100-home-hero">
+        <div class="n100-home-eyebrow">N100 FINANCIAL INTELLIGENCE</div>
+        <h1>NIFTY 100 Financial Intelligence</h1>
+        <p>Financial analytics &amp; research workspace</p>
+        <div class="n100-home-status">92 companies &nbsp;·&nbsp; 30+ KPIs &nbsp;·&nbsp; 8 analytical screens</div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown(
+    """
+    <style>
+        .n100-home-hero {
+            padding: 0.35rem 0 0.9rem 0;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+        }
+        .n100-home-eyebrow {
+            color: #00D2C4;
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            margin-bottom: 0.25rem;
+        }
+        .n100-home-hero h1 {
+            color: #E6EDF2;
+            font-size: 2rem;
+            line-height: 1.15;
+            margin: 0;
+            letter-spacing: -0.03em;
+        }
+        .n100-home-hero p {
+            color: #A0AEC0;
+            font-size: 0.95rem;
+            margin: 0.35rem 0 0 0;
+        }
+        .n100-home-status {
+            color: #94A3B8;
+            font-size: 0.76rem;
+            margin-top: 0.55rem;
+            letter-spacing: 0.03em;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 YEARS = [2019, 2020, 2021, 2022, 2023, 2024]
 selected_year = st.sidebar.selectbox("Year", YEARS, index=len(YEARS) - 1)
