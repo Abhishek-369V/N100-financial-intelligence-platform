@@ -1,0 +1,13 @@
+[theme]
+base = "dark"
+primaryColor = "#00D2C4"
+backgroundColor = "#07111F"
+secondaryBackgroundColor = "#0D1B2A"
+textColor = "#E6EDF2"
+font = "sans-serif"
+
+[theme.sidebar]
+backgroundColor = "#0D1B2A"
+secondaryBackgroundColor = "#102235"
+textColor = "#E6EDF2"
+primaryColor = "#00D2C4"
