@@ -1,4 +1,4 @@
-"""Day 23 — Company Profile screen: search, card, KPI tiles, charts, pros/cons."""
+"""Company Profile: company metadata, KPI history, P&L trend and pros/cons."""
 
 import sys
 from pathlib import Path
@@ -9,131 +9,132 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import db_engine, get_companies, get_pl, get_ratios
+from utils.api_client import APIClientError, get_companies, get_company_pl, get_company_profile, get_company_ratios
 
 st.set_page_config(layout="wide")
 
 st.title("Company Profile")
 
-companies = get_companies()
+try:
+    companies_payload = get_companies()
+except APIClientError as exc:
+    st.error(str(exc))
+    st.stop()
 
-options = (companies["company_id"] + " — " + companies["company_name"]).sort_values().tolist()
-picked = st.selectbox("Search company name or ticker", options, index=None, placeholder="Start typing…")
+companies = pd.DataFrame(companies_payload["companies"])
+if companies.empty:
+    st.warning("No companies found in the backend.")
+    st.stop()
 
-ticker = picked.split(" — ")[0] if picked else None
-
+options = (companies["id"] + " — " + companies["company_name"]).sort_values().tolist()
+picked = st.selectbox(
+    "Search company name or ticker",
+    options,
+    index=None,
+    placeholder="Start typing a company name or ticker…",
+)
 if picked is None:
-    st.caption("Type a company name or ticker to search.")
-elif ticker not in companies["company_id"].values:
-    st.warning("Ticker not found — please try another")
+    st.info("Select a company to load its profile and financial history.")
+    st.stop()
+ticker = picked.split(" — ")[0]
 
-if ticker:
-    row = companies[companies["company_id"] == ticker].iloc[0]
+try:
+    profile_payload = get_company_profile(ticker)
+    ratios = pd.DataFrame(get_company_ratios(ticker)["ratios"])
+    pl = pd.DataFrame(get_company_pl(ticker)["profit_and_loss"])
+except APIClientError as exc:
+    st.error(str(exc))
+    st.stop()
 
-    st.subheader(row["company_name"])
-    c1, c2, c3 = st.columns(3)
-    c1.write(f"**Sector:** {row['broad_sector']}")
-    c2.write(f"**Sub-sector:** {row['sub_sector']}")
-    c3.write(f"**NSE Ticker:** {ticker}")
-    desc = row["about_company"] or "_No description available._"
-    st.write(f"**Description:** {desc}")
+row = profile_payload["company"]
+sector = profile_payload.get("sector") or {}
+latest = profile_payload.get("latest_year_kpis")
 
-    st.divider()
+st.subheader(row["company_name"])
+c1, c2, c3 = st.columns(3)
+c1.write(f"**Sector:** {sector.get('broad_sector', 'N/A')}")
+c2.write(f"**Sub-sector:** {sector.get('sub_sector', 'N/A')}")
+c3.write(f"**NSE Ticker:** {ticker}")
+desc = row.get("about_company") or "_No description available._"
+st.write(f"**Description:** {desc}")
 
-    ratios_hist = get_ratios(ticker).sort_values("year")
-    latest = ratios_hist.iloc[-1] if not ratios_hist.empty else None
+st.divider()
 
-    k1, k2, k3, k4, k5, k6 = st.columns(6)
-    if latest is not None:
-        k1.metric("ROE", f"{latest['return_on_equity_pct']:.1f}%")
-        # ROCE has no per-year history in financial_ratios — it's a single
-        # static snapshot value in the companies table, not a time series.
-        k2.metric(
-            "ROCE (latest snapshot)",
-            f"{row['roce_percentage']:.1f}%" if pd.notna(row["roce_percentage"]) else "N/A",
-        )
-        k3.metric("Net Profit Margin", f"{latest['net_profit_margin_pct']:.1f}%")
-        k4.metric("D/E", f"{latest['debt_to_equity']:.2f}")
-        k5.metric(
-            "Revenue CAGR 5yr",
-            f"{latest['revenue_cagr_5yr']:.1f}%" if pd.notna(latest["revenue_cagr_5yr"]) else "N/A",
-        )
-        k6.metric(
-            "FCF (latest yr, Cr)",
-            f"{latest['free_cash_flow_cr']:.0f}" if pd.notna(latest["free_cash_flow_cr"]) else "N/A",
-        )
-    else:
-        st.info("No financial_ratios data available for this company.")
-
-    st.divider()
-
-    pl = get_pl(ticker).sort_values("year").tail(10)
-    if not pl.empty:
-        st.subheader("Revenue & Net Profit")
-        fig = go.Figure()
-        fig.add_bar(
-            x=pl["year"],
-            y=pl["sales"],
-            name="Revenue (₹ Cr)",
-            hovertemplate="₹%{y:,.0f} Cr<extra>Revenue</extra>",
-        )
-        fig.add_bar(
-            x=pl["year"],
-            y=pl["net_profit"],
-            name="Net Profit (₹ Cr)",
-            hovertemplate="₹%{y:,.0f} Cr<extra>Net Profit</extra>",
-        )
-        fig.update_layout(barmode="group", height=380, margin={"t": 10, "b": 10})
-        st.plotly_chart(fig, width="stretch")
-        if len(pl) < 10:
-            st.caption(f"Only {len(pl)} years of P&L data available for this company.")
-    else:
-        st.info("No profit & loss history available.")
-
-    if not ratios_hist.empty:
-        st.subheader("ROE vs ROCE")
-        roe_hist = ratios_hist.tail(10)
-        fig2 = make_subplots(specs=[[{"secondary_y": True}]])
-        fig2.add_trace(
-            go.Scatter(
-                x=roe_hist["year"],
-                y=roe_hist["return_on_equity_pct"],
-                name="ROE %",
-                mode="lines+markers",
-                hovertemplate="ROE: %{y:.1f}%<extra></extra>",
-            ),
-            secondary_y=False,
-        )
-        if pd.notna(row["roce_percentage"]):
-            fig2.add_hline(
-                y=row["roce_percentage"],
-                line_dash="dot",
-                annotation_text=f"ROCE (latest snapshot, static): {row['roce_percentage']:.1f}%",
-                secondary_y=True,
-            )
-        fig2.update_layout(height=360, margin={"t": 10, "b": 10})
-        st.plotly_chart(fig2, width="stretch")
-        st.caption(
-            "ROCE has no year-by-year history in the database (only a single "
-            "latest-snapshot value in the companies table) — shown as a flat "
-            "reference line rather than a fabricated trend."
-        )
-
-    pc = pd.read_sql(
-        "SELECT pros, cons FROM prosandcons WHERE company_id = :t", db_engine, params={"t": ticker}
+k1, k2, k3, k4, k5, k6 = st.columns(6)
+if latest is not None:
+    k1.metric("ROE", f"{latest['return_on_equity_pct']:.1f}%")
+    k2.metric(
+        "ROCE (latest snapshot)",
+        f"{row['roce_percentage']:.1f}%" if pd.notna(row.get("roce_percentage")) else "N/A",
     )
-    st.subheader("Pros & Cons")
-    if pc.empty or (not pc.iloc[0]["pros"] and not pc.iloc[0]["cons"]):
-        # prosandcons only has 14 rows total covering 92 companies -- sparse
-        # source coverage (same pattern as peer_groups.xlsx only covering 56/92).
-        st.caption("No pros/cons data available for this company in the source file.")
-    else:
-        pros_items = [p.strip() for p in (pc.iloc[0]["pros"] or "").split(". ") if p.strip()]
-        cons_items = [c.strip() for c in (pc.iloc[0]["cons"] or "").split(". ") if c.strip()]
-        pcol, ccol = st.columns(2)
-        with pcol:
-            for p in pros_items:
-                st.success(f"✅ {p}")
-        with ccol:
-            for c in cons_items:
-                st.error(f"❌ {c}")
+    k3.metric("Net Profit Margin", f"{latest['net_profit_margin_pct']:.1f}%")
+    k4.metric("D/E", f"{latest['debt_to_equity']:.2f}")
+    k5.metric(
+        "Revenue CAGR 5yr",
+        f"{latest['revenue_cagr_5yr']:.1f}%" if pd.notna(latest["revenue_cagr_5yr"]) else "N/A",
+    )
+    k6.metric(
+        "FCF (latest yr, Cr)",
+        f"{latest['free_cash_flow_cr']:.0f}" if pd.notna(latest["free_cash_flow_cr"]) else "N/A",
+    )
+else:
+    st.info("No financial_ratios data available for this company.")
+
+st.divider()
+
+if not pl.empty:
+    st.subheader("Revenue & Net Profit")
+    pl = pl.sort_values("year").tail(10)
+    fig = go.Figure()
+    fig.add_bar(x=pl["year"], y=pl["sales"], name="Revenue (₹ Cr)", hovertemplate="₹%{y:,.0f} Cr<extra>Revenue</extra>")
+    fig.add_bar(x=pl["year"], y=pl["net_profit"], name="Net Profit (₹ Cr)", hovertemplate="₹%{y:,.0f} Cr<extra>Net Profit</extra>")
+    fig.update_layout(barmode="group", height=380, margin={"t": 10, "b": 10})
+    st.plotly_chart(fig, width="stretch")
+    if len(pl) < 10:
+        st.caption(f"Only {len(pl)} years of P&L data available for this company.")
+else:
+    st.info("No profit & loss history available.")
+
+if not ratios.empty:
+    ratios = ratios.sort_values("year")
+    st.subheader("ROE vs ROCE")
+    roe_hist = ratios.tail(10)
+    fig2 = make_subplots(specs=[[{"secondary_y": True}]])
+    fig2.add_trace(
+        go.Scatter(
+            x=roe_hist["year"],
+            y=roe_hist["return_on_equity_pct"],
+            name="ROE %",
+            mode="lines+markers",
+            hovertemplate="ROE: %{y:.1f}%<extra></extra>",
+        ),
+        secondary_y=False,
+    )
+    if pd.notna(row.get("roce_percentage")):
+        fig2.add_hline(
+            y=row["roce_percentage"],
+            line_dash="dot",
+            annotation_text=f"ROCE (latest snapshot, static): {row['roce_percentage']:.1f}%",
+            secondary_y=True,
+        )
+    fig2.update_layout(height=360, margin={"t": 10, "b": 10})
+    st.plotly_chart(fig2, width="stretch")
+    st.caption(
+        "ROCE has no year-by-year history in the database (only a single latest-snapshot value "
+        "in the companies table) — shown as a flat reference line rather than a fabricated trend."
+    )
+
+pc = profile_payload.get("pros_cons")
+st.subheader("Pros & Cons")
+if not pc or (not pc.get("pros") and not pc.get("cons")):
+    st.caption("No pros/cons data available for this company in the source file.")
+else:
+    pros_items = [p.strip() for p in (pc.get("pros") or "").split(". ") if p.strip()]
+    cons_items = [c.strip() for c in (pc.get("cons") or "").split(". ") if c.strip()]
+    pcol, ccol = st.columns(2)
+    with pcol:
+        for item in pros_items:
+            st.success(f"✅ {item}")
+    with ccol:
+        for item in cons_items:
+            st.error(f"❌ {item}")

@@ -1,4 +1,4 @@
-"""Day 25 — Sector Analysis: bubble chart + sector median KPI bars."""
+"""Sector Analysis: API-backed revenue-vs-ROE bubble chart and medians."""
 
 import sys
 from pathlib import Path
@@ -9,43 +9,32 @@ import plotly.graph_objects as go
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import db_engine, get_ratios, get_sectors
+from utils.api_client import APIClientError, get_sector_companies, get_sectors
 
 st.set_page_config(layout="wide")
 
 st.title("Sector Analysis")
 
-sectors = get_sectors()
-if sectors.empty:
-    st.warning("No sector data found.")
+try:
+    sector_payload = get_sectors()
+except APIClientError as exc:
+    st.error(str(exc))
     st.stop()
 
-broad_sector = st.selectbox("Sector", sorted(sectors["broad_sector"].dropna().unique()))
+sector_names = sorted(row["broad_sector"] for row in sector_payload["sectors"] if row.get("broad_sector"))
+if not sector_names:
+    st.warning("No sector data found in the backend.")
+    st.stop()
 
-# Latest-year snapshot per company:
-# revenue (profitandloss), ROE(financial_ratios), market cap (market_cap)
-# -- three different source tables, each joined on its own latest year per company.
-pnl_latest = pd.read_sql(
-    "SELECT company_id, sales FROM profitandloss "
-    "WHERE (company_id, year) IN (SELECT company_id, MAX(year) FROM profitandloss GROUP BY company_id)",
-    db_engine,
-)
-mc_latest = pd.read_sql(
-    "SELECT company_id, market_cap_crore FROM market_cap "
-    "WHERE (company_id, year) IN (SELECT company_id, MAX(year) FROM market_cap GROUP BY company_id)",
-    db_engine,
-)
-ratios_latest = get_ratios().sort_values("year").groupby("company_id").last().reset_index()
-companies_names = pd.read_sql("SELECT id AS company_id, company_name FROM companies", db_engine)
+broad_sector = st.selectbox("Sector", sector_names)
 
-sector_companies = sectors[sectors["broad_sector"] == broad_sector]
+try:
+    companies_payload = get_sector_companies(broad_sector)
+except APIClientError as exc:
+    st.error(str(exc))
+    st.stop()
 
-merged = (
-    sector_companies.merge(pnl_latest, on="company_id", how="left")
-    .merge(mc_latest, on="company_id", how="left")
-    .merge(ratios_latest[["company_id", "return_on_equity_pct"]], on="company_id", how="left")
-    .merge(companies_names, on="company_id", how="left")
-)
+merged = pd.DataFrame(companies_payload["companies"])
 merged = merged.dropna(subset=["sales", "return_on_equity_pct", "market_cap_crore"])
 
 if merged.empty:
@@ -64,10 +53,12 @@ else:
     )
     fig.update_layout(height=480, margin={"t": 20, "b": 20})
     st.plotly_chart(fig, width="stretch")
-    if len(merged) < len(sector_companies):
+
+    total_in_sector = companies_payload["count"]
+    if len(merged) < total_in_sector:
         st.caption(
-            f"{len(merged)} of {len(sector_companies)} companies in {broad_sector} "
-            f"have complete revenue/ROE/market-cap data to plot."
+            f"{len(merged)} of {total_in_sector} companies in {broad_sector} "
+            "have complete revenue/ROE/market-cap data to plot."
         )
 
     st.divider()

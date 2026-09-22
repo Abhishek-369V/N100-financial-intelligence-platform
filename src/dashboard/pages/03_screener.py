@@ -1,4 +1,4 @@
-"""Day 24 — Screener screen: 10 sliders, 6 presets, live table, CSV export."""
+"""Screener screen: 10 sliders, presets, live API-backed results and CSV export."""
 
 import sys
 from pathlib import Path
@@ -7,11 +7,7 @@ import pandas as pd
 import streamlit as st
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import db_engine
-
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent / "screener"))
-from composite_score import compute_composite_score  # type: ignore
-from engine import apply_filter, load_config, load_universe  # type: ignore
+from utils.api_client import APIClientError, get_screener
 
 st.set_page_config(layout="wide")
 
@@ -22,16 +18,16 @@ st.title("Screener")
 # Those companies simply always pass a "min" slider or always fail a "max" slider at the display cap;
 # nothing is excluded from the underlying data.
 SLIDERS = [
-    ("ROE min (%)", "roe_min", 0.0, 100.0, 1.0, 0.0),
-    ("D/E max", "de_max", 0.0, 3.0, 0.1, 3.0),
-    ("FCF min (₹ Cr)", "fcf_min", -50000.0, 50000.0, 500.0, -50000.0),
-    ("Revenue CAGR 5yr min (%)", "revenue_cagr_5yr_min", -10.0, 40.0, 1.0, -10.0),
-    ("PAT CAGR 5yr min (%)", "pat_cagr_5yr_min", -30.0, 130.0, 1.0, -30.0),
-    ("OPM min (%)", "opm_min", 0.0, 100.0, 1.0, 0.0),
-    ("P/E max", "pe_max", 0.0, 80.0, 1.0, 80.0),
-    ("P/B max", "pb_max", 0.0, 15.0, 0.5, 15.0),
-    ("Dividend Yield min (%)", "dividend_yield_min", 0.0, 5.0, 0.1, 0.0),
-    ("ICR min", "icr_min", 0.0, 50.0, 1.0, 0.0),
+    ("ROE min (%)", "roe_min", "min_roe", 0.0, 100.0, 1.0, 0.0),
+    ("D/E max", "de_max", "max_de", 0.0, 3.0, 0.1, 3.0),
+    ("FCF min (₹ Cr)", "fcf_min", "min_fcf", -50000.0, 50000.0, 500.0, -50000.0),
+    ("Revenue CAGR 5yr min (%)", "revenue_cagr_5yr_min", "min_rev_cagr_5yr", -10.0, 40.0, 1.0, -10.0),
+    ("PAT CAGR 5yr min (%)", "pat_cagr_5yr_min", "min_pat_cagr_5yr", -30.0, 130.0, 1.0, -30.0),
+    ("OPM min (%)", "opm_min", "min_opm", 0.0, 100.0, 1.0, 0.0),
+    ("P/E max", "pe_max", "max_pe", 0.0, 80.0, 1.0, 80.0),
+    ("P/B max", "pb_max", "max_pb", 0.0, 15.0, 0.5, 15.0),
+    ("Dividend Yield min (%)", "dividend_yield_min", "min_dividend_yield", 0.0, 5.0, 0.1, 0.0),
+    ("ICR min", "icr_min", "min_icr", 0.0, 50.0, 1.0, 0.0),
 ]
 
 # Preset -> slider mapping.
@@ -61,13 +57,11 @@ PRESETS = {
     ),
     "Turnaround Watch": (
         {"fcf_min": 1.0},
-        ("Preset also requires Revenue CAGR 3yr > 10% (column doesn't exist yet, "
-        "documented Sprint 3 gap) and YoY-declining D/E (needs a 2-year comparison, "
-        "not a single-snapshot slider) - neither is applied here, only FCF > 0."),
+        "Preset also requires Revenue CAGR 3yr > 10% and YoY-declining D/E; neither condition is represented by the current 10 sliders, so only FCF > 0 is applied.",
     ),
 }
 
-for _, key, _, _, _, default in SLIDERS:
+for _, key, _, _, _, _, default in SLIDERS:
     if key not in st.session_state:
         st.session_state[key] = default
 if "_preset_note" not in st.session_state:
@@ -77,8 +71,8 @@ st.subheader("Presets")
 preset_cols = st.columns(6)
 for i, (name, (values, note)) in enumerate(PRESETS.items()):
     if preset_cols[i].button(name, width="stretch"):
-        for k, v in values.items():
-            st.session_state[k] = v
+        for key, value in values.items():
+            st.session_state[key] = value
         st.session_state["_preset_note"] = f"**{name}**: {note}" if note else None
         st.rerun()
 
@@ -90,30 +84,24 @@ st.divider()
 with st.sidebar.expander("Screening Filters", expanded=True):
     st.caption("Refine the 92-company universe")
     thresholds = {}
-    for label, key, lo, hi, step, default in SLIDERS:
+    for label, key, _, lo, hi, step, _ in SLIDERS:
         thresholds[key] = st.slider(label, lo, hi, key=key, step=step)
 
-config = load_config()
-universe = load_universe()
-
-# Same fix as Day 23 Home: load_universe() doesn't merge in companies.roce_percentage or company_name,
-# needed for display + the composite score's ROCE component.
-extra = pd.read_sql("SELECT id AS company_id, company_name, roce_percentage FROM companies", db_engine)
-universe = universe.merge(extra, on="company_id", how="left")
-
-filtered = universe.copy()
-for label, key, lo, hi, step, default in SLIDERS:
-    # A slider left at its "no-op" end (min floor / max ceiling)
-    #  shouldn't exclude anyone -- skip applying it entirely.
+api_filters = {}
+for _, key, api_key, lo, hi, _, _ in SLIDERS:
     is_min_filter = "min" in key
-    at_noop = (thresholds[key] == lo) if is_min_filter else (thresholds[key] == hi)
-    if at_noop:
-        continue
-    filtered = apply_filter(filtered, key, thresholds[key], config)
+    at_noop = thresholds[key] == (lo if is_min_filter else hi)
+    if not at_noop:
+        api_filters[api_key] = thresholds[key]
 
-filtered = compute_composite_score(filtered, sector_relative=False)
+try:
+    response = get_screener(**api_filters)
+except APIClientError as exc:
+    st.error(str(exc))
+    st.stop()
 
-st.subheader(f"{len(filtered)} companies match your filters")
+result_table = pd.DataFrame(response["companies"])
+st.subheader(f"{len(result_table)} companies match your filters")
 
 display_cols = [
     "company_id",
@@ -131,10 +119,8 @@ display_cols = [
     "dividend_yield_pct",
     "interest_coverage",
 ]
-display_cols = [c for c in display_cols if c in filtered.columns]
-result_table = filtered[display_cols].sort_values(
-    "composite_quality_score", ascending=False, na_position="last"
-)
+display_cols = [c for c in display_cols if c in result_table.columns]
+result_table = result_table[display_cols]
 
 st.dataframe(result_table, hide_index=True, width="stretch")
 

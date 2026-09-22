@@ -1,4 +1,4 @@
-"""Day 25 — Trend Analysis: company search + up-to-3-metric overlay, YoY annotations."""
+"""Trend Analysis: API-backed company history with up-to-three metric overlays."""
 
 import sys
 from pathlib import Path
@@ -9,14 +9,20 @@ import streamlit as st
 from plotly.subplots import make_subplots
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from utils.db import get_companies, get_pl, get_ratios
+from utils.api_client import APIClientError, get_companies, get_company_pl, get_company_ratios
 
 st.set_page_config(layout="wide")
 
 st.title("Trend Analysis")
 
-companies = get_companies()
-options = (companies["company_id"] + " — " + companies["company_name"]).sort_values().tolist()
+try:
+    companies_payload = get_companies()
+except APIClientError as exc:
+    st.error(str(exc))
+    st.stop()
+
+companies = pd.DataFrame(companies_payload["companies"])
+options = (companies["id"] + " — " + companies["company_name"]).sort_values().tolist()
 picked = st.selectbox("Company", options, index=None, placeholder="Search company name or ticker…")
 
 # Metrics grouped by unit, since overlaying % metrics with ₹ Cr metrics on
@@ -45,18 +51,23 @@ elif not selected:
     st.caption("Pick at least one metric.")
 else:
     ticker = picked.split(" — ")[0]
-    ratios = get_ratios(ticker).sort_values("year").tail(10)
-    pl = get_pl(ticker).sort_values("year").tail(10)
-    # ratios and pl may not share identical year sets
-    # (different source files) -- merge on year so every plotted point has a matching x-axis label
+    try:
+        ratios = pd.DataFrame(get_company_ratios(ticker)["ratios"])
+        pl = pd.DataFrame(get_company_pl(ticker)["profit_and_loss"])
+    except APIClientError as exc:
+        st.error(str(exc))
+        st.stop()
+
+    ratios = ratios.sort_values("year").tail(10)
+    pl = pl.sort_values("year").tail(10)
     merged = pd.merge(ratios, pl, on=["company_id", "year"], how="outer").sort_values("year")
 
     if len(merged) < 10:
         st.caption(f"Only {len(merged)} years of data available for this company.")
 
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    has_pct = any(m in PCT_METRICS for m in selected)
-    has_cr = any(m in CR_METRICS for m in selected)
+    has_pct = any(metric in PCT_METRICS for metric in selected)
+    has_cr = any(metric in CR_METRICS for metric in selected)
 
     for metric_label in selected:
         col = ALL_METRICS[metric_label]

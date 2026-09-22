@@ -16,6 +16,8 @@ from pathlib import Path
 
 import streamlit as st
 
+from utils.api_client import APIClientError, health
+
 BASE_DIR = Path(__file__).resolve().parent
 
 st.set_page_config(
@@ -53,18 +55,7 @@ st.markdown(
             overscroll-behavior: contain;
         }
         
-        /* 3. Compress space between native navigation and brand container */
-        [data-testid="stSidebarNav"] {
-            padding-top: 0.2rem;
-        }
-        [data-testid="stSidebarContent"] {
-            padding-top: 0.5rem;
-        }
-        [data-testid="stSidebarNavItems"] {
-            padding-top: 0.25rem !important;
-        }
-
-        /* 4. Native Streamlit status messages: quieter, compact, theme-aligned.   
+        /* 3. Native Streamlit status messages: quieter, compact, theme-aligned.   
            Semantic icon colors are retained so warning/info/error/success are
            still immediately distinguishable without the bright default cards.
         */
@@ -91,8 +82,6 @@ st.markdown(
         [data-testid="stAlert"] svg {
             margin-top: 0.05rem;
         }
-
-    </style>
 
     </style>
     """,
@@ -161,5 +150,14 @@ pg = st.navigation(
     expanded=True,
 )
 
-# Execution block routing control back to individual screen script files
+# A small shell-level indicator makes the full-stack connection visible while
+# keeping page content focused on analysis. The dashboard is still usable when
+# the backend is unavailable; individual pages will show the same actionable
+# connection message when they request data.
+try:
+    backend_health = health()
+    st.sidebar.caption(f"Backend · connected · {backend_health.get('status', 'unknown')}")
+except APIClientError:
+    st.sidebar.caption("Backend · offline · start FastAPI to load live data")
+
 pg.run()
