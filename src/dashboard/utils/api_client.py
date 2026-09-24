@@ -9,7 +9,8 @@ FastAPI service; deployment can override the URL with N100_API_BASE_URL.
 from __future__ import annotations
 
 import os
-from typing import Any
+import time
+from typing import Any, Callable
 
 import httpx
 import streamlit as st
@@ -26,6 +27,24 @@ def get_api_base_url() -> str:
     return os.getenv("N100_API_BASE_URL", DEFAULT_API_BASE_URL).rstrip("/")
 
 
+def _is_local_api(base_url: str) -> bool:
+    """Return True when the dashboard is configured for local FastAPI development."""
+    return base_url == DEFAULT_API_BASE_URL
+
+
+def _unreachable_message(base_url: str) -> str:
+    """Build a user-facing connection message appropriate to the environment."""
+    if _is_local_api(base_url):
+        return (
+            "FastAPI is not running locally. "
+            "Start it with `uvicorn src.api.main:app --port 8000 --reload`."
+        )
+
+    return (
+        f"The backend service at {base_url} is starting up. Please reload this page shortly."
+    )
+
+
 @st.cache_data(ttl=30, show_spinner=False)
 def _get(base_url: str, path: str, params: tuple[tuple[str, Any], ...] = ()) -> dict[str, Any]:
     """GET a JSON endpoint and normalize transport/API failures for Streamlit."""
@@ -33,10 +52,10 @@ def _get(base_url: str, path: str, params: tuple[tuple[str, Any], ...] = ()) -> 
     try:
         response = httpx.get(url, params=dict(params), timeout=10.0)
     except httpx.RequestError as exc:
-        raise APIClientError(
-            f"FastAPI is not reachable at {base_url}. "
-            "Start the API with `uvicorn src.api.main:app --port 8000 --reload`."
-        ) from exc
+        raise APIClientError(_unreachable_message(base_url)) from exc
+
+    if response.status_code in {502, 503, 504} and not _is_local_api(base_url):
+        raise APIClientError(_unreachable_message(base_url))
 
     if response.status_code >= 400:
         try:
@@ -51,14 +70,75 @@ def _get(base_url: str, path: str, params: tuple[tuple[str, Any], ...] = ()) -> 
         raise APIClientError("FastAPI returned a non-JSON response where JSON was expected.") from exc
 
 
+def _health_request(
+    base_url: str,
+    *,
+    timeout: float,
+) -> dict[str, Any]:
+    """Perform one health request without caching, so retry status can be shown live."""
+    url = f"{base_url}/health"
+    try:
+        response = httpx.get(url, timeout=timeout)
+    except httpx.RequestError as exc:
+        raise APIClientError(_unreachable_message(base_url)) from exc
+
+    if response.status_code in {502, 503, 504} and not _is_local_api(base_url):
+        raise APIClientError(_unreachable_message(base_url))
+
+    if response.status_code >= 400:
+        try:
+            detail = response.json().get("detail", response.text)
+        except ValueError:
+            detail = response.text
+        raise APIClientError(f"FastAPI returned HTTP {response.status_code}: {detail}")
+
+    try:
+        return response.json()
+    except ValueError as exc:
+        raise APIClientError("FastAPI returned a non-JSON health response where JSON was expected.") from exc
+
+
+def health(
+    *,
+    retries: int = 2,
+    timeout: float = 8.0,
+    retry_delay: float = 1.5,
+    on_attempt: Callable[[int, int], None] | None = None,
+) -> dict[str, Any]:
+    """Return backend health information, retrying transient startup failures.
+
+    ``on_attempt`` receives ``(attempt_number, total_attempts)`` so the Streamlit
+    shell can distinguish the initial connection attempt from a likely cold start.
+    """
+    base_url = get_api_base_url()
+    total_attempts = retries + 1
+    last_error: APIClientError | None = None
+
+    for attempt in range(1, total_attempts + 1):
+        if on_attempt is not None:
+            on_attempt(attempt, total_attempts)
+
+        try:
+            return _health_request(base_url, timeout=timeout)
+        except APIClientError as exc:
+            last_error = exc
+
+            # Retry only connectivity/startup-style failures. A real API response
+            # such as 404 should surface immediately instead of being retried.
+            if not str(exc).startswith("FastAPI is temporarily unavailable"):
+                break
+
+            if attempt < total_attempts:
+                time.sleep(retry_delay)
+
+    if last_error is not None:
+        raise last_error
+    raise APIClientError("FastAPI health check did not return a response.")
+
+
 def _params(**kwargs: Any) -> tuple[tuple[str, Any], ...]:
     """Convert keyword arguments to a stable, cacheable parameter tuple."""
     return tuple((key, value) for key, value in sorted(kwargs.items()) if value is not None)
-
-
-def health() -> dict[str, Any]:
-    """Return backend health information."""
-    return _get(get_api_base_url(), "health")
 
 
 def get_companies(

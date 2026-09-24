@@ -151,13 +151,28 @@ pg = st.navigation(
 )
 
 # A small shell-level indicator makes the full-stack connection visible while
-# keeping page content focused on analysis. The dashboard is still usable when
-# the backend is unavailable; individual pages will show the same actionable
-# connection message when they request data.
+# keeping page content focused on analysis. The status also handles Render's
+# cold-start behavior: the first failed request is treated as a possible wake-up
+# rather than immediately presenting a local-development startup instruction.
+backend_status = st.sidebar.empty()
+
+
+def _show_backend_attempt(attempt: int, total_attempts: int) -> None:
+    """Update the sidebar while the shell is establishing the API connection."""
+    if attempt == 1:
+        backend_status.caption("Backend · connecting...")
+    else:
+        backend_status.caption("Backend · waking up...")
+
+
 try:
-    backend_health = health()
-    st.sidebar.caption(f"Backend · connected · {backend_health.get('status', 'unknown')}")
-except APIClientError:
-    st.sidebar.caption("Backend · offline · start FastAPI to load live data")
+    backend_health = health(on_attempt=_show_backend_attempt)
+    backend_status.caption("Backend · connected")
+except APIClientError as exc:
+    backend_status.caption("Backend · unavailable")
+
+    # Match the deployed/local environment in the visible warning text. The
+    # API client already formats the actionable detail appropriately.
+    st.sidebar.warning(str(exc))
 
 pg.run()
