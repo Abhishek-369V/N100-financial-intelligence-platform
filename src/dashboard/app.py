@@ -34,7 +34,7 @@ st.set_page_config(
 # Custom CSS targeting the Bloomberg Deep Slate layout rules
 st.markdown(
     """
-        <style>
+    <style>
         /* 1. Teal coloring to Sidebar */
         [data-testid="stSidebarNav"] span[data-testid="stIconMaterial"], 
         header [data-testid="stIconMaterial"] {
@@ -82,7 +82,6 @@ st.markdown(
         [data-testid="stAlert"] svg {
             margin-top: 0.05rem;
         }
-
     </style>
     """,
     unsafe_allow_html=True,
@@ -151,9 +150,8 @@ pg = st.navigation(
 )
 
 # A small shell-level indicator makes the full-stack connection visible while
-# keeping page content focused on analysis. The status also handles Render's
-# cold-start behavior: the first failed request is treated as a possible wake-up
-# rather than immediately presenting a local-development startup instruction.
+# keeping page content focused on analysis. 
+# The status also reflects the hosted backend cold-start window handled by the API client.
 backend_status = st.sidebar.empty()
 
 
@@ -171,8 +169,8 @@ try:
 except APIClientError as exc:
     backend_status.caption("Backend · unavailable")
 
-    # Match the deployed/local environment in the visible warning text. The
-    # API client already formats the actionable detail appropriately.
-    st.sidebar.warning(str(exc))
+    # Keep the final message compact and neutral. The API client provides a
+    # short local-development instruction or a concise deployed recovery note.
+    st.sidebar.info(str(exc))
 
 pg.run()
