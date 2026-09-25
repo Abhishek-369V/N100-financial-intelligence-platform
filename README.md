@@ -1,4 +1,4 @@
-<h1><img src="assets/graph.png" alt="N100 Logo" width="32" style="vertical-align: middle; margin-right: 8px;" /> N100 Financial Intelligence Platform</h1>
+<h1><img src="assets/graph.png" alt="N100 Logo" width="32" style="vertical-align: middle; margin-right: 8px;" /> Nifty 100 Financial Intelligence</h1>
 
 **A production-style financial analytics and research workspace for a curated 92-company subset of the Nifty 100:**<br>
 
@@ -24,6 +24,8 @@
   <img src="https://img.shields.io/badge/License-MIT-green?logo=MIT&logoColor=white" alt="License" />
 
 </p>
+
+> **Release:** `v1.0.0` -- Initial stable release
 
 ## Live Demo:
 
