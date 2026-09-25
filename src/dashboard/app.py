@@ -13,9 +13,8 @@ MODIFY APP.py - BY REPLACING PLACEHOLDER AND CHANGE IN STYLING..
 """
 
 from pathlib import Path
-
+import time
 import streamlit as st
-
 from utils.api_client import APIClientError, health
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -149,28 +148,47 @@ pg = st.navigation(
     expanded=True,
 )
 
-# A small shell-level indicator makes the full-stack connection visible while
-# keeping page content focused on analysis. 
-# The status also reflects the hosted backend cold-start window handled by the API client.
+# Keep the connection state visible in both the sidebar and the main content
+# while the hosted backend is waking from inactivity.
 backend_status = st.sidebar.empty()
-
+backend_notice = st.empty()
+BACKEND_HEALTH_TTL_SECONDS = 60.0
 
 def _show_backend_attempt(attempt: int, total_attempts: int) -> None:
-    """Update the sidebar while the shell is establishing the API connection."""
+    """Update the sidebar and main-page notice during backend connection attempts."""
     if attempt == 1:
         backend_status.caption("Backend · connecting...")
+        backend_notice.info("Connecting to the hosted backend...")        
     else:
         backend_status.caption("Backend · waking up...")
+        backend_notice.info(
+            "The hosted backend is waking from inactivity... Please wait a moment while it starts."
+        )           
 
+last_health_success = st.session_state.get("_backend_health_last_success")
+health_is_fresh = (
+    last_health_success is not None
+    and time.monotonic() - last_health_success < BACKEND_HEALTH_TTL_SECONDS
+)
 
-try:
-    backend_health = health(on_attempt=_show_backend_attempt)
+if health_is_fresh:
+    # Page navigation reruns the app shell. 
+    # Reuse a recent successful health check so every navigation does not briefly show the startup state.
     backend_status.caption("Backend · connected")
-except APIClientError as exc:
-    backend_status.caption("Backend · unavailable")
+    backend_notice.empty()
+else:
+    try:
+        backend_health = health(on_attempt=_show_backend_attempt)
+        st.session_state["_backend_health_last_success"] = time.monotonic()
+        backend_status.caption("Backend · connected")
+        backend_notice.empty()
+    except APIClientError as exc:
+        st.session_state.pop("_backend_health_last_success", None)
+        backend_status.caption("Backend · unavailable")
+        backend_notice.info(str(exc))
 
-    # Keep the final message compact and neutral. The API client provides a
-    # short local-development instruction or a concise deployed recovery note.
-    st.sidebar.info(str(exc))
+        # Keep the final message compact and neutral. 
+        # The API client provides a short local-development instruction or a concise deployed recovery note.
+        st.sidebar.info(str(exc))
 
 pg.run()
